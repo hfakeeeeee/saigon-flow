@@ -1,4 +1,4 @@
-import { STORAGE_KEY } from './constants';
+import { GRID_H, GRID_W, STORAGE_KEY } from './constants';
 import { cellInDirection, centerOf, hasRoadEdge, keyOf, neighborsOf } from './grid';
 import type { Building, Cell, ColorKey, GameState, HudState, RoadOwner } from './types';
 
@@ -208,26 +208,66 @@ const spawnBuilding = (game: GameState) => {
     ...Array.from(game.parks),
   ]);
 
-  const candidates: Cell[] = [
-    { x: 3, y: 6 },
-    { x: 8, y: 13 },
-    { x: 24, y: 15 },
-    { x: 26, y: 5 },
-    { x: 15, y: 2 },
-    { x: 5, y: 16 },
-    { x: 21, y: 7 },
-    { x: 12, y: 15 },
-    { x: 28, y: 11 },
-    { x: 1, y: 11 },
-    { x: 16, y: 16 },
-    { x: 19, y: 2 },
-  ];
+  const buildings = [...game.houses, ...game.shops];
+  const distanceToNearestBuilding = (cell: Cell) =>
+    buildings.reduce(
+      (nearest, building) => Math.min(nearest, Math.abs(cell.x - building.x) + Math.abs(cell.y - building.y)),
+      Number.POSITIVE_INFINITY,
+    );
 
-  const spot = candidates.find((cell) => !occupied.has(keyOf(cell.x, cell.y)));
+  let candidates: Cell[] = [];
+  for (let y = 1; y < GRID_H - 1; y += 1) {
+    for (let x = 1; x < GRID_W - 1; x += 1) {
+      const cell = { x, y };
+      if (occupied.has(keyOf(x, y))) continue;
+      if (distanceToNearestBuilding(cell) < 3) continue;
+      candidates.push(cell);
+    }
+  }
+
+  if (candidates.length === 0) {
+    candidates = [];
+    for (let y = 1; y < GRID_H - 1; y += 1) {
+      for (let x = 1; x < GRID_W - 1; x += 1) {
+        if (!occupied.has(keyOf(x, y))) candidates.push({ x, y });
+      }
+    }
+  }
+
+  if (candidates.length === 0) return;
+
+  candidates.sort((a, b) => {
+    const distanceScore = distanceToNearestBuilding(b) - distanceToNearestBuilding(a);
+    if (distanceScore !== 0) return distanceScore;
+    return Math.abs(a.x - 15) + Math.abs(a.y - 9) - (Math.abs(b.x - 15) + Math.abs(b.y - 9));
+  });
+
+  const spot = candidates[(game.nextBuildingId * 7) % Math.min(candidates.length, 9)];
   if (!spot) return;
 
-  const shouldSpawnShop = game.shops.length < 6 && game.nextBuildingId % 3 === 0;
-  const color = colorCycle[game.nextBuildingId % colorCycle.length];
+  const balance = colorCycle.map((color) => {
+    const houses = game.houses.filter((home) => home.color === color).length;
+    const shops = game.shops.filter((shop) => shop.color === color).length;
+    const pressure = game.shops
+      .filter((shop) => shop.color === color)
+      .reduce((sum, shop) => sum + (shop.demand ?? 0) / (shop.capacity ?? 7), 0);
+
+    return { color, houses, shops, pressure, supportGap: shops * 2 - houses };
+  });
+
+  const weakestColor = [...balance].sort((a, b) => {
+    if (b.supportGap !== a.supportGap) return b.supportGap - a.supportGap;
+    return b.pressure - a.pressure;
+  })[0].color;
+  const supportedColors = balance
+    .filter((item) => item.houses >= Math.max(1, item.shops * 2) && item.shops < 4)
+    .sort((a, b) => a.shops - b.shops || b.houses - a.houses);
+
+  const shouldSpawnShop =
+    supportedColors.length > 0 &&
+    game.houses.length >= game.shops.length * 2 + 2 &&
+    game.nextBuildingId % 4 === 0;
+  const color = shouldSpawnShop ? supportedColors[0].color : weakestColor;
   const id = `${shouldSpawnShop ? 's' : 'h'}-${game.nextBuildingId}`;
 
   if (shouldSpawnShop) {
@@ -261,52 +301,53 @@ const dispatchVehicles = (game: GameState) => {
     }),
   );
 
-  const readyHomes = game.houses.filter((home) => (home.cooldown ?? 0) <= 0);
-
-  for (const home of readyHomes) {
-    const candidates = game.shops
-      .filter((shop) => shop.color === home.color && (outstandingByShop.get(shop.id) ?? 0) > 0)
-      .map((shop) => {
-        const path = makeVehiclePath(game, home, shop);
-        if (!path) return null;
-
-        const demand = shop.demand ?? 0;
-        const capacity = shop.capacity ?? 7;
-        const pressure = demand / capacity;
-        const distance = Math.abs(home.x - shop.x) + Math.abs(home.y - shop.y);
-
-        return {
-          shop,
-          path,
-          urgency:
-            pressure * 100 +
-            (shop.overloadSeconds ?? 0) * 12 +
-            (outstandingByShop.get(shop.id) ?? 0) * 4 -
-            distance * 0.15,
-        };
-      })
-      .filter((candidate): candidate is { shop: Building; path: Cell[]; urgency: number } => candidate !== null)
-      .sort((a, b) => b.urgency - a.urgency);
-
-    const target = candidates[0];
-    if (!target) continue;
-
-    const start = centerOf(target.path[0]);
-    game.vehicles.push({
-      id: `v-${game.nextVehicleId}`,
-      color: target.shop.color,
-      homeId: home.id,
-      shopId: target.shop.id,
-      state: 'outbound',
-      x: start.x,
-      y: start.y,
-      path: target.path,
-      targetIndex: 1,
-      speed: 4.9 + Math.min(game.score / 70, 1.8),
+  const readyHomes = new Set(game.houses.filter((home) => (home.cooldown ?? 0) <= 0).map((home) => home.id));
+  const urgentShops = game.shops
+    .filter((shop) => (outstandingByShop.get(shop.id) ?? 0) > 0)
+    .sort((a, b) => {
+      const urgencyA =
+        ((a.demand ?? 0) / (a.capacity ?? 7)) * 100 +
+        (a.overloadSeconds ?? 0) * 12 +
+        (outstandingByShop.get(a.id) ?? 0) * 4;
+      const urgencyB =
+        ((b.demand ?? 0) / (b.capacity ?? 7)) * 100 +
+        (b.overloadSeconds ?? 0) * 12 +
+        (outstandingByShop.get(b.id) ?? 0) * 4;
+      return urgencyB - urgencyA;
     });
-    game.nextVehicleId += 1;
-    home.cooldown = 2.1;
-    outstandingByShop.set(target.shop.id, Math.max(0, (outstandingByShop.get(target.shop.id) ?? 0) - 1));
+
+  for (const shop of urgentShops) {
+    while ((outstandingByShop.get(shop.id) ?? 0) > 0) {
+      const candidates = game.houses
+        .filter((home) => readyHomes.has(home.id) && home.color === shop.color)
+        .map((home) => {
+          const path = makeVehiclePath(game, home, shop);
+          return path ? { home, path } : null;
+        })
+        .filter((candidate): candidate is { home: Building; path: Cell[] } => candidate !== null)
+        .sort((a, b) => a.path.length - b.path.length);
+
+      const target = candidates[0];
+      if (!target) break;
+
+      const start = centerOf(target.path[0]);
+      game.vehicles.push({
+        id: `v-${game.nextVehicleId}`,
+        color: shop.color,
+        homeId: target.home.id,
+        shopId: shop.id,
+        state: 'outbound',
+        x: start.x,
+        y: start.y,
+        path: target.path,
+        targetIndex: 1,
+        speed: 4.9 + Math.min(game.score / 70, 1.8),
+      });
+      game.nextVehicleId += 1;
+      target.home.cooldown = 2.1;
+      readyHomes.delete(target.home.id);
+      outstandingByShop.set(shop.id, Math.max(0, (outstandingByShop.get(shop.id) ?? 0) - 1));
+    }
   }
 };
 
