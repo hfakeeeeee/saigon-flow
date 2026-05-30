@@ -200,6 +200,7 @@ const drawBuilding = (ctx: CanvasRenderingContext2D, building: Building, cell: n
     ctx.stroke();
     ctx.fillStyle = color.fill;
     ctx.fillRect(bx + cell * 0.43, by + cell * 0.61, cell * 0.14, cell * 0.23);
+    drawBuildingExit(ctx, building, cell);
     return;
   }
 
@@ -232,6 +233,31 @@ const drawBuilding = (ctx: CanvasRenderingContext2D, building: Building, cell: n
     ctx.stroke();
     ctx.globalAlpha = 1;
   }
+
+  drawBuildingExit(ctx, building, cell);
+};
+
+const drawBuildingExit = (ctx: CanvasRenderingContext2D, building: Building, cell: number) => {
+  if (!building.exit) return;
+
+  const color = colors[building.color];
+  const bx = building.x * cell;
+  const by = building.y * cell;
+  const positions = {
+    up: { x: bx + cell * 0.5, y: by + cell * 0.08 },
+    right: { x: bx + cell * 0.92, y: by + cell * 0.5 },
+    down: { x: bx + cell * 0.5, y: by + cell * 0.92 },
+    left: { x: bx + cell * 0.08, y: by + cell * 0.5 },
+  };
+  const pos = positions[building.exit];
+
+  ctx.fillStyle = '#fff9ec';
+  ctx.strokeStyle = color.dark;
+  ctx.lineWidth = Math.max(2, cell * 0.05);
+  ctx.beginPath();
+  ctx.arc(pos.x, pos.y, cell * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
 };
 
 const drawVehicles = (ctx: CanvasRenderingContext2D, game: GameState, cell: number) => {

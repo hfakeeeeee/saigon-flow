@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { CirclePause, CirclePlay, RotateCcw, Route, Trash2, Waves } from 'lucide-react';
-import { getCellFromPointer, isBlockedCell, keyOf } from './game/grid';
+import {
+  buildingAt,
+  connectRoadCells,
+  disconnectRoadCell,
+  getCellFromPointer,
+  isBlockedCell,
+  keyOf,
+  setBuildingExit,
+} from './game/grid';
 import { drawGame } from './game/renderer';
 import { makeGame, makeHud, updateGame } from './game/state';
 import type { Cell, GameState, HudState, Tool } from './game/types';
@@ -10,6 +18,7 @@ function App() {
   const gameRef = useRef<GameState>(makeGame());
   const animationRef = useRef<number>();
   const pointerCellRef = useRef<Cell | null>(null);
+  const previousCellRef = useRef<Cell | null>(null);
   const drawingRef = useRef(false);
   const toolRef = useRef<Tool>('road');
   const [tool, setTool] = useState<Tool>('road');
@@ -18,6 +27,7 @@ function App() {
   const resetGame = useCallback(() => {
     gameRef.current = makeGame();
     pointerCellRef.current = null;
+    previousCellRef.current = null;
     setHud(makeHud(gameRef.current));
   }, []);
 
@@ -33,20 +43,46 @@ function App() {
     setTool(nextTool);
   }, []);
 
-  const editCell = useCallback((cell: Cell | null) => {
+  const editCell = useCallback((cell: Cell | null, previousCell: Cell | null) => {
     if (!cell) return;
 
     const game = gameRef.current;
     const key = keyOf(cell.x, cell.y);
 
     if (toolRef.current === 'erase') {
-      if (game.roads.delete(key)) game.roadTiles += 1;
+      if (game.roads.has(key)) {
+        disconnectRoadCell(game, cell);
+        game.roads.delete(key);
+        game.roadTiles += 1;
+      }
       return;
     }
 
-    if (game.roadTiles <= 0 || game.roads.has(key) || isBlockedCell(game, cell.x, cell.y)) return;
-    game.roads.add(key);
-    game.roadTiles -= 1;
+    const currentBuilding = buildingAt(game, cell.x, cell.y);
+    if (currentBuilding) {
+      if (previousCell && game.roads.has(keyOf(previousCell.x, previousCell.y))) {
+        setBuildingExit(game, currentBuilding, previousCell);
+      }
+      return;
+    }
+
+    if (!game.roads.has(key)) {
+      if (game.roadTiles <= 0 || isBlockedCell(game, cell.x, cell.y)) return;
+      game.roads.add(key);
+      game.roadTiles -= 1;
+    }
+
+    if (!previousCell) return;
+
+    const previousBuilding = buildingAt(game, previousCell.x, previousCell.y);
+    if (previousBuilding) {
+      setBuildingExit(game, previousBuilding, cell);
+      return;
+    }
+
+    if (game.roads.has(keyOf(previousCell.x, previousCell.y))) {
+      connectRoadCells(game, previousCell, cell);
+    }
   }, []);
 
   useEffect(() => {
@@ -103,8 +139,9 @@ function App() {
     canvas.setPointerCapture(event.pointerId);
     const cell = getCellFromPointer(canvas, event.clientX, event.clientY);
     pointerCellRef.current = cell;
+    previousCellRef.current = cell;
     drawingRef.current = true;
-    editCell(cell);
+    editCell(cell, null);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -113,12 +150,16 @@ function App() {
 
     const cell = getCellFromPointer(canvas, event.clientX, event.clientY);
     pointerCellRef.current = cell;
-    if (drawingRef.current) editCell(cell);
+    if (drawingRef.current) {
+      editCell(cell, previousCellRef.current);
+      previousCellRef.current = cell;
+    }
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     drawingRef.current = false;
+    previousCellRef.current = null;
     if (canvas?.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   };
 
@@ -213,6 +254,7 @@ function App() {
             onPointerLeave={() => {
               pointerCellRef.current = null;
               drawingRef.current = false;
+              previousCellRef.current = null;
             }}
           />
         </div>

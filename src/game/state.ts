@@ -1,5 +1,5 @@
 import { STORAGE_KEY } from './constants';
-import { centerOf, keyOf, neighborsOf } from './grid';
+import { cellInDirection, centerOf, hasRoadEdge, keyOf, neighborsOf } from './grid';
 import type { Building, Cell, ColorKey, GameState, HudState, RoadOwner } from './types';
 
 const makeTerrain = () => {
@@ -87,6 +87,7 @@ export const makeGame = (): GameState => {
     ],
     vehicles: [],
     roads: new Set<string>(),
+    roadEdges: new Set<string>(),
     water,
     parks,
     toast: { message: 'Saigon Flow', ttl: 2.6 },
@@ -95,8 +96,10 @@ export const makeGame = (): GameState => {
   };
 };
 
-const adjacentRoad = (game: GameState, building: Building) =>
-  neighborsOf(building).find((cell) => game.roads.has(keyOf(cell.x, cell.y)));
+const adjacentRoads = (game: GameState, building: Building) =>
+  building.exit
+    ? [cellInDirection(building, building.exit)].filter((cell) => game.roads.has(keyOf(cell.x, cell.y)))
+    : [];
 
 const findRoadPath = (game: GameState, start: Cell, goal: Cell) => {
   const startKey = keyOf(start.x, start.y);
@@ -112,7 +115,7 @@ const findRoadPath = (game: GameState, start: Cell, goal: Cell) => {
 
     for (const next of neighborsOf(current)) {
       const nextKey = keyOf(next.x, next.y);
-      if (!game.roads.has(nextKey) || cameFrom.has(nextKey)) continue;
+      if (!game.roads.has(nextKey) || cameFrom.has(nextKey) || !hasRoadEdge(game, current, next)) continue;
       cameFrom.set(nextKey, currentKey);
       queue.push(next);
     }
@@ -132,14 +135,20 @@ const findRoadPath = (game: GameState, start: Cell, goal: Cell) => {
 };
 
 const makeVehiclePath = (game: GameState, home: Building, shop: Building) => {
-  const start = adjacentRoad(game, home);
-  const goal = adjacentRoad(game, shop);
-  if (!start || !goal) return null;
+  const starts = adjacentRoads(game, home);
+  const goals = adjacentRoads(game, shop);
+  let bestPath: Cell[] | null = null;
 
-  const roadPath = findRoadPath(game, start, goal);
-  if (!roadPath) return null;
+  for (const start of starts) {
+    for (const goal of goals) {
+      const roadPath = findRoadPath(game, start, goal);
+      if (!roadPath) continue;
+      if (!bestPath || roadPath.length < bestPath.length) bestPath = roadPath;
+    }
+  }
 
-  return [{ x: home.x, y: home.y }, ...roadPath, { x: shop.x, y: shop.y }];
+  if (!bestPath) return null;
+  return [{ x: home.x, y: home.y }, ...bestPath, { x: shop.x, y: shop.y }];
 };
 
 const addToast = (game: GameState, message: string) => {
@@ -155,10 +164,10 @@ export const roadOwnerMap = (game: GameState) => {
   const queue: Array<{ cell: Cell; color: ColorKey; distance: number }> = [];
 
   for (const home of game.houses) {
-    for (const next of neighborsOf(home)) {
-      const nextKey = keyOf(next.x, next.y);
-      if (game.roads.has(nextKey)) queue.push({ cell: next, color: home.color, distance: 0 });
-    }
+    if (!home.exit) continue;
+    const next = cellInDirection(home, home.exit);
+    const nextKey = keyOf(next.x, next.y);
+    if (game.roads.has(nextKey)) queue.push({ cell: next, color: home.color, distance: 0 });
   }
 
   while (queue.length > 0) {
@@ -179,7 +188,7 @@ export const roadOwnerMap = (game: GameState) => {
       owners.set(itemKey, item.color);
 
       for (const next of neighborsOf(item.cell)) {
-        if (game.roads.has(keyOf(next.x, next.y))) {
+        if (game.roads.has(keyOf(next.x, next.y)) && hasRoadEdge(game, item.cell, next)) {
           queue.push({ cell: next, color: item.color, distance: item.distance + 1 });
         }
       }

@@ -1,5 +1,6 @@
 export type Tool = 'road' | 'erase';
 export type Cell = { x: number; y: number };
+export type Direction = 'up' | 'right' | 'down' | 'left';
 export type ColorKey = 'coral' | 'teal' | 'gold' | 'violet';
 export type VehicleState = 'outbound' | 'returning';
 export type GamePhase = 'running' | 'paused' | 'over';
@@ -16,6 +17,7 @@ export type Building = {
   capacity?: number;
   nextDemand?: number;
   overloadSeconds?: number;
+  exit?: Direction;
 };
 
 export type Vehicle = {
@@ -48,6 +50,7 @@ export type GameState = {
   shops: Building[];
   vehicles: Vehicle[];
   roads: Set<string>;
+  roadEdges: Set<string>;
   water: Set<string>;
   parks: Set<string>;
   toast: Toast | null;
