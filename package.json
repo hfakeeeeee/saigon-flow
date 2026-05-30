@@ -1,0 +1,25 @@
+{
+  "name": "saigon-flow",
+  "version": "0.1.0",
+  "private": true,
+  "homepage": "https://hfakeeeeee.github.io/saigon-flow/",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "deploy": "npm run build && gh-pages -d dist"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "gh-pages": "^6.2.0",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.21"
+  }
+}

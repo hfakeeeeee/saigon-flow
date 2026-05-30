@@ -1,0 +1,356 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #152026;
+  background: #efe4d1;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+}
+
+.app-shell {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 12px;
+  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(75, 166, 189, 0.2), rgba(243, 189, 68, 0.12)),
+    #efe4d1;
+}
+
+.topbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 76px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.brand svg {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  color: #28798e;
+  stroke-width: 2.2;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 2.3rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.brand p {
+  margin: 6px 0 0;
+  color: rgba(21, 32, 38, 0.68);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(74px, 1fr));
+  gap: 8px;
+}
+
+.stat {
+  min-width: 74px;
+  border: 1px solid rgba(21, 32, 38, 0.12);
+  background: rgba(255, 250, 240, 0.78);
+  border-radius: 8px;
+  padding: 9px 10px;
+  box-shadow: 0 10px 28px rgba(40, 51, 54, 0.08);
+}
+
+.stat span,
+.pressure span {
+  display: block;
+  color: rgba(21, 32, 38, 0.58);
+  font-size: 0.73rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.stat strong {
+  display: block;
+  margin-top: 6px;
+  color: #152026;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.game-layout {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 12px;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 10px;
+  min-height: 0;
+}
+
+.tool-group {
+  display: grid;
+  gap: 8px;
+}
+
+.icon-button {
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(21, 32, 38, 0.15);
+  border-radius: 8px;
+  color: #152026;
+  background: rgba(255, 250, 240, 0.82);
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(40, 51, 54, 0.08);
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease,
+    border-color 160ms ease;
+}
+
+.icon-button svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.35;
+}
+
+.icon-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(21, 32, 38, 0.28);
+}
+
+.icon-button:focus-visible {
+  outline: 3px solid rgba(75, 166, 189, 0.45);
+  outline-offset: 2px;
+}
+
+.icon-button.active {
+  color: #fff9ec;
+  background: #152026;
+}
+
+.pressure {
+  align-self: stretch;
+  width: 56px;
+  min-height: 160px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  justify-items: center;
+  gap: 9px;
+  border: 1px solid rgba(21, 32, 38, 0.12);
+  border-radius: 8px;
+  padding: 10px 8px;
+  background: rgba(255, 250, 240, 0.78);
+  box-shadow: 0 10px 28px rgba(40, 51, 54, 0.08);
+}
+
+.pressure span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.pressure strong {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.pressure-track {
+  width: 10px;
+  height: 100%;
+  min-height: 74px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(21, 32, 38, 0.12);
+}
+
+.pressure-track div {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  min-height: 2px;
+  border-radius: inherit;
+  background: linear-gradient(0deg, #50c9c3, #f3bd44 62%, #f06543);
+  width: 100%;
+  height: var(--pressure, 0%);
+  transition: height 160ms ease, width 160ms ease;
+}
+
+.canvas-wrap {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid rgba(21, 32, 38, 0.14);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #efe4d1;
+  box-shadow: 0 22px 60px rgba(40, 51, 54, 0.16);
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.status-strip {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.status-strip span {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(21, 32, 38, 0.12);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: rgba(21, 32, 38, 0.72);
+  background: rgba(255, 250, 240, 0.72);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  body {
+    overflow: auto;
+  }
+
+  .app-shell {
+    min-height: 100vh;
+    height: auto;
+    grid-template-rows: auto minmax(520px, 1fr) auto;
+    padding: 10px;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .brand svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  .brand p {
+    font-size: 0.78rem;
+  }
+
+  .stat-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .stat {
+    min-width: 0;
+    padding: 8px 6px;
+  }
+
+  .stat span {
+    font-size: 0.64rem;
+  }
+
+  .stat strong {
+    font-size: 1.1rem;
+  }
+
+  .game-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .toolbar {
+    grid-template-columns: auto auto 1fr;
+    grid-template-rows: 52px;
+    align-items: stretch;
+  }
+
+  .tool-group {
+    grid-auto-flow: column;
+    grid-auto-columns: 48px;
+  }
+
+  .icon-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .pressure {
+    width: auto;
+    min-height: 48px;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: 1fr;
+    align-items: center;
+    justify-items: start;
+  }
+
+  .pressure span {
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+
+  .pressure-track {
+    width: 100%;
+    height: 10px;
+    min-height: 10px;
+  }
+
+  .pressure-track div {
+    width: var(--pressure, 0%);
+    height: 100%;
+  }
+
+  .status-strip {
+    grid-template-columns: 1fr;
+  }
+}
