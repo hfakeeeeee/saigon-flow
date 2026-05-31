@@ -89,7 +89,7 @@ export const makeGame = (): GameState => {
     weekDayIndex: 0,
     weekProgress: 0,
     nextRoadGrantDay: WEEK_LENGTH_DAYS + 1,
-    roadTiles: 64,
+    roadTiles: 20,
     bridges: 0,
     motorwaysAvailable: 0,
     roundaboutsAvailable: 0,
