@@ -2,6 +2,7 @@ import type { ColorKey } from './types';
 
 export const GRID_W = 30;
 export const GRID_H = 18;
+export const GRIDLOCK_LIMIT_SECONDS = 7;
 export const STORAGE_KEY = 'saigon-flow-best-score';
 
 export const colors: Record<ColorKey, { road: string; fill: string; dark: string; light: string }> = {

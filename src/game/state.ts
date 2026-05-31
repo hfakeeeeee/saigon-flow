@@ -1,4 +1,4 @@
-import { GRID_H, GRID_W, STORAGE_KEY } from './constants';
+import { GRID_H, GRID_W, GRIDLOCK_LIMIT_SECONDS, STORAGE_KEY } from './constants';
 import {
   cellInDirection,
   centerOf,
@@ -705,7 +705,7 @@ export const updateGame = (game: GameState, dt: number) => {
 
     if ((shop.demand ?? 0) >= (shop.capacity ?? 7)) {
       shop.overloadSeconds = (shop.overloadSeconds ?? 0) + dt;
-      if ((shop.overloadSeconds ?? 0) > 7) {
+      if ((shop.overloadSeconds ?? 0) > GRIDLOCK_LIMIT_SECONDS) {
         game.phase = 'over';
         addToast(game, 'Gridlock');
       }

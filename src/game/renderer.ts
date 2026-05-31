@@ -1,4 +1,4 @@
-import { colors, palette } from './constants';
+import { colors, GRIDLOCK_LIMIT_SECONDS, palette } from './constants';
 import { inBounds, inVisibleBounds, keyOf, roadConnections } from './grid';
 import { getVehicleLane } from './lane';
 import { roadOwnerMap } from './state';
@@ -320,13 +320,38 @@ const drawBuilding = (ctx: CanvasRenderingContext2D, gameOrBuilding: GameState |
 
   const overload = building.overloadSeconds ?? 0;
   if (overload > 0) {
-    ctx.strokeStyle = palette.warning;
-    ctx.globalAlpha = 0.45 + Math.sin(performance.now() / 120) * 0.2;
-    ctx.lineWidth = Math.max(2, cell * 0.08);
+    const progress = Math.min(1, overload / GRIDLOCK_LIMIT_SECONDS);
+    const radius = cell * 0.68;
+    const cx = bx + cell * 0.5;
+    const cy = by + cell * 0.5;
+    const remaining = Math.max(0, Math.ceil(GRIDLOCK_LIMIT_SECONDS - overload));
+
+    ctx.strokeStyle = 'rgba(21, 32, 38, 0.2)';
+    ctx.lineWidth = Math.max(3, cell * 0.09);
     ctx.beginPath();
-    ctx.arc(bx + cell * 0.5, by + cell * 0.5, cell * (0.58 + overload * 0.02), 0, Math.PI * 2);
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     ctx.stroke();
+
+    ctx.strokeStyle = palette.warning;
+    ctx.globalAlpha = 0.72 + Math.sin(performance.now() / 120) * 0.16;
+    ctx.lineWidth = Math.max(3, cell * 0.09);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+
+    ctx.fillStyle = palette.warning;
+    ctx.globalAlpha = 0.94;
+    ctx.beginPath();
+    ctx.arc(bx + cell * 0.18, by + cell * 0.82, cell * 0.18, 0, Math.PI * 2);
+    ctx.fill();
     ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `800 ${Math.max(9, cell * 0.26)}px Inter, system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(remaining), bx + cell * 0.18, by + cell * 0.82);
   }
 
   drawBuildingExit(ctx, building, cell);
