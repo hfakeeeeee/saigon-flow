@@ -142,11 +142,44 @@ button {
   font-size: 1rem;
 }
 
+.day-dial {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 8px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    conic-gradient(#152026 var(--day-progress, 0%), rgba(21, 32, 38, 0.12) 0),
+    rgba(21, 32, 38, 0.08);
+}
+
+.day-dial div {
+  width: 26px;
+  height: 26px;
+  position: relative;
+  border-radius: 50%;
+  background: #fffaf0;
+  box-shadow: inset 0 0 0 1px rgba(21, 32, 38, 0.12);
+}
+
+.day-dial div::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 2px;
+  height: 9px;
+  border-radius: 999px;
+  background: #152026;
+  transform: translateX(-50%) rotate(calc(var(--day-progress, 0%) * 3.6deg));
+  transform-origin: 50% 9px;
+}
+
 .week-days {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
-  margin-bottom: 8px;
 }
 
 .week-days span {
@@ -165,21 +198,6 @@ button {
 .week-days span.active {
   color: #fff9ec;
   background: #152026;
-}
-
-.week-progress {
-  height: 7px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(21, 32, 38, 0.12);
-}
-
-.week-progress div {
-  width: var(--week-progress, 0%);
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #50c9c3, #f3bd44);
-  transition: width 160ms ease;
 }
 
 .game-layout {
