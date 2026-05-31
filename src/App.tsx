@@ -192,8 +192,8 @@ function App() {
             <strong>{hud.bestScore}</strong>
           </div>
           <div className="stat">
-            <span>Day</span>
-            <strong>{hud.day}</strong>
+            <span>Week</span>
+            <strong>{hud.week}</strong>
           </div>
           <div className="stat">
             <span>Road</span>

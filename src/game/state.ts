@@ -1,6 +1,10 @@
 import { GRID_H, GRID_W, STORAGE_KEY } from './constants';
-import { cellInDirection, centerOf, hasRoadEdge, keyOf, neighborsOf } from './grid';
-import type { Building, Cell, ColorKey, GameState, HudState, RoadOwner } from './types';
+import { cellInDirection, centerOf, hasRoadEdge, keyOf, neighborsOf, roadConnections } from './grid';
+import type { Building, Cell, ColorKey, GameState, HudState, RoadOwner, Vehicle } from './types';
+
+const HOME_VEHICLE_SLOTS = 2;
+const WEEK_LENGTH_DAYS = 7;
+const WEEKLY_ROAD_GRANT = 24;
 
 const makeTerrain = () => {
   const water = new Set<string>();
@@ -42,13 +46,15 @@ export const makeGame = (): GameState => {
     score: 0,
     bestScore,
     day: 1,
-    roadTiles: 110,
+    week: 1,
+    nextRoadGrantDay: WEEK_LENGTH_DAYS + 1,
+    roadTiles: 64,
     spawnTimer: 17,
     elapsed: 0,
     houses: [
-      { id: 'h-1', kind: 'home', color: 'coral', x: 2, y: 3, cooldown: 0 },
-      { id: 'h-2', kind: 'home', color: 'teal', x: 27, y: 2, cooldown: 0 },
-      { id: 'h-3', kind: 'home', color: 'gold', x: 4, y: 14, cooldown: 0 },
+      { id: 'h-1', kind: 'home', color: 'coral', x: 2, y: 3, vehicleSlots: HOME_VEHICLE_SLOTS },
+      { id: 'h-2', kind: 'home', color: 'teal', x: 27, y: 2, vehicleSlots: HOME_VEHICLE_SLOTS },
+      { id: 'h-3', kind: 'home', color: 'gold', x: 4, y: 14, vehicleSlots: HOME_VEHICLE_SLOTS },
     ],
     shops: [
       {
@@ -284,7 +290,7 @@ const spawnBuilding = (game: GameState) => {
     });
     addToast(game, 'New stop opened');
   } else {
-    game.houses.push({ id, kind: 'home', color, x: spot.x, y: spot.y, cooldown: 0 });
+    game.houses.push({ id, kind: 'home', color, x: spot.x, y: spot.y, vehicleSlots: HOME_VEHICLE_SLOTS });
     addToast(game, 'New home block');
   }
 
@@ -301,7 +307,17 @@ const dispatchVehicles = (game: GameState) => {
     }),
   );
 
-  const readyHomes = new Set(game.houses.filter((home) => (home.cooldown ?? 0) <= 0).map((home) => home.id));
+  const busyVehiclesByHome = new Map<string, number>();
+  for (const vehicle of game.vehicles) {
+    busyVehiclesByHome.set(vehicle.homeId, (busyVehiclesByHome.get(vehicle.homeId) ?? 0) + 1);
+  }
+
+  const availableVehiclesByHome = new Map(
+    game.houses.map((home) => [
+      home.id,
+      Math.max(0, (home.vehicleSlots ?? HOME_VEHICLE_SLOTS) - (busyVehiclesByHome.get(home.id) ?? 0)),
+    ]),
+  );
   const urgentShops = game.shops
     .filter((shop) => (outstandingByShop.get(shop.id) ?? 0) > 0)
     .sort((a, b) => {
@@ -319,7 +335,7 @@ const dispatchVehicles = (game: GameState) => {
   for (const shop of urgentShops) {
     while ((outstandingByShop.get(shop.id) ?? 0) > 0) {
       const candidates = game.houses
-        .filter((home) => readyHomes.has(home.id) && home.color === shop.color)
+        .filter((home) => (availableVehiclesByHome.get(home.id) ?? 0) > 0 && home.color === shop.color)
         .map((home) => {
           const path = makeVehiclePath(game, home, shop);
           return path ? { home, path } : null;
@@ -344,22 +360,51 @@ const dispatchVehicles = (game: GameState) => {
         speed: 4.9 + Math.min(game.score / 70, 1.8),
       });
       game.nextVehicleId += 1;
-      target.home.cooldown = 2.1;
-      readyHomes.delete(target.home.id);
+      availableVehiclesByHome.set(target.home.id, Math.max(0, (availableVehiclesByHome.get(target.home.id) ?? 0) - 1));
       outstandingByShop.set(shop.id, Math.max(0, (outstandingByShop.get(shop.id) ?? 0) - 1));
     }
   }
 };
 
+const vehicleOccupancy = (vehicles: Vehicle[]) => {
+  const occupancy = new Map<string, number>();
+
+  for (const vehicle of vehicles) {
+    const cellKey = keyOf(Math.floor(vehicle.x), Math.floor(vehicle.y));
+    occupancy.set(cellKey, (occupancy.get(cellKey) ?? 0) + 1);
+  }
+
+  return occupancy;
+};
+
+const connectionCount = (game: GameState, cell: Cell) => {
+  const connections = roadConnections(game, cell.x, cell.y);
+  return Number(connections.up) + Number(connections.right) + Number(connections.down) + Number(connections.left);
+};
+
+const congestionMultiplier = (game: GameState, vehicle: Vehicle, occupancy: Map<string, number>) => {
+  const currentCell = { x: Math.floor(vehicle.x), y: Math.floor(vehicle.y) };
+  const nextPathCell = vehicle.path[vehicle.targetIndex];
+  const nextKey = nextPathCell ? keyOf(nextPathCell.x, nextPathCell.y) : keyOf(currentCell.x, currentCell.y);
+  const currentLoad = occupancy.get(keyOf(currentCell.x, currentCell.y)) ?? 0;
+  const nextLoad = occupancy.get(nextKey) ?? 0;
+  const intersectionPenalty =
+    game.roads.has(keyOf(currentCell.x, currentCell.y)) && connectionCount(game, currentCell) >= 3 ? 0.72 : 1;
+  const crowdPenalty = Math.max(0.42, 1 - Math.max(0, currentLoad - 1) * 0.18 - nextLoad * 0.1);
+
+  return intersectionPenalty * crowdPenalty;
+};
+
 const updateVehicles = (game: GameState, dt: number) => {
-  const survivors = [];
+  const survivors: Vehicle[] = [];
+  const occupancy = vehicleOccupancy(game.vehicles);
 
   for (const vehicle of game.vehicles) {
     const target = centerOf(vehicle.path[vehicle.targetIndex]);
     const dx = target.x - vehicle.x;
     const dy = target.y - vehicle.y;
     const distance = Math.hypot(dx, dy);
-    const travel = vehicle.speed * dt;
+    const travel = vehicle.speed * congestionMultiplier(game, vehicle, occupancy) * dt;
 
     if (distance <= travel) {
       vehicle.x = target.x;
@@ -401,10 +446,13 @@ export const updateGame = (game: GameState, dt: number) => {
 
   game.elapsed += dt;
   game.day = Math.floor(game.elapsed / 24) + 1;
+  game.week = Math.floor((game.day - 1) / WEEK_LENGTH_DAYS) + 1;
   game.spawnTimer -= dt;
 
-  for (const home of game.houses) {
-    home.cooldown = Math.max(0, (home.cooldown ?? 0) - dt);
+  while (game.day >= game.nextRoadGrantDay) {
+    game.roadTiles += WEEKLY_ROAD_GRANT;
+    game.nextRoadGrantDay += WEEK_LENGTH_DAYS;
+    addToast(game, `Week ${game.week}: +${WEEKLY_ROAD_GRANT} roads`);
   }
 
   for (const shop of game.shops) {
@@ -445,6 +493,7 @@ export const makeHud = (game: GameState): HudState => ({
   score: game.score,
   bestScore: game.bestScore,
   day: game.day,
+  week: game.week,
   roadTiles: game.roadTiles,
   activeVehicles: game.vehicles.length,
   pressure: pressureOf(game),

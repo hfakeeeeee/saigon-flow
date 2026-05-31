@@ -97,7 +97,7 @@ export const drawGame = (
   }
 
   drawRoads(ctx, game, cell);
-  game.houses.forEach((building) => drawBuilding(ctx, building, cell));
+  game.houses.forEach((building) => drawBuilding(ctx, game, building, cell));
   game.shops.forEach((building) => drawBuilding(ctx, building, cell));
   drawVehicles(ctx, game, cell);
   drawPointer(ctx, game, pointerCell, cell);
@@ -180,7 +180,10 @@ const drawRoads = (ctx: CanvasRenderingContext2D, game: GameState, cell: number)
   }
 };
 
-const drawBuilding = (ctx: CanvasRenderingContext2D, building: Building, cell: number) => {
+const drawBuilding = (ctx: CanvasRenderingContext2D, gameOrBuilding: GameState | Building, maybeBuilding: Building | number, maybeCell?: number) => {
+  const game = maybeCell === undefined ? null : (gameOrBuilding as GameState);
+  const building = maybeCell === undefined ? (gameOrBuilding as Building) : (maybeBuilding as Building);
+  const cell = maybeCell === undefined ? (maybeBuilding as number) : maybeCell;
   const color = colors[building.color];
   const bx = building.x * cell;
   const by = building.y * cell;
@@ -200,6 +203,7 @@ const drawBuilding = (ctx: CanvasRenderingContext2D, building: Building, cell: n
     ctx.stroke();
     ctx.fillStyle = color.fill;
     ctx.fillRect(bx + cell * 0.43, by + cell * 0.61, cell * 0.14, cell * 0.23);
+    if (game) drawHomeVehicles(ctx, game, building, cell);
     drawBuildingExit(ctx, building, cell);
     return;
   }
@@ -235,6 +239,21 @@ const drawBuilding = (ctx: CanvasRenderingContext2D, building: Building, cell: n
   }
 
   drawBuildingExit(ctx, building, cell);
+};
+
+const drawHomeVehicles = (ctx: CanvasRenderingContext2D, game: GameState, building: Building, cell: number) => {
+  const slots = building.vehicleSlots ?? 2;
+  const busy = game.vehicles.filter((vehicle) => vehicle.homeId === building.id).length;
+  const available = Math.max(0, slots - busy);
+  const bx = building.x * cell;
+  const by = building.y * cell;
+
+  for (let index = 0; index < slots; index += 1) {
+    ctx.fillStyle = index < available ? colors[building.color].dark : 'rgba(21, 32, 38, 0.22)';
+    ctx.beginPath();
+    ctx.arc(bx + cell * (0.33 + index * 0.17), by + cell * 0.95, cell * 0.045, 0, Math.PI * 2);
+    ctx.fill();
+  }
 };
 
 const drawBuildingExit = (ctx: CanvasRenderingContext2D, building: Building, cell: number) => {

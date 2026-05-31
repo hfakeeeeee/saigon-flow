@@ -13,6 +13,7 @@ export type Building = {
   x: number;
   y: number;
   cooldown?: number;
+  vehicleSlots?: number;
   demand?: number;
   capacity?: number;
   nextDemand?: number;
@@ -43,6 +44,8 @@ export type GameState = {
   score: number;
   bestScore: number;
   day: number;
+  week: number;
+  nextRoadGrantDay: number;
   roadTiles: number;
   spawnTimer: number;
   elapsed: number;
@@ -63,6 +66,7 @@ export type HudState = {
   score: number;
   bestScore: number;
   day: number;
+  week: number;
   roadTiles: number;
   activeVehicles: number;
   pressure: number;
