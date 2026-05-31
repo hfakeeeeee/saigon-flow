@@ -1,5 +1,5 @@
 import { GRID_H, GRID_W, STORAGE_KEY } from './constants';
-import { cellInDirection, centerOf, hasRoadEdge, keyOf, neighborsOf, roadConnections } from './grid';
+import { cellInDirection, centerOf, hasRoadEdge, keyOf, neighborsOf, roadConnections, setBuildingExit } from './grid';
 import { getVehicleLane } from './lane';
 import type { Building, Cell, ColorKey, GameState, HudState, RoadOwner, UpgradeKind, UpgradeOption, Vehicle } from './types';
 
@@ -46,11 +46,33 @@ const makeTerrain = () => {
   return { water, parks };
 };
 
+const addShopDriveway = (game: GameState, shop: Building) => {
+  const options = neighborsOf(shop).filter((cell) => {
+    const key = keyOf(cell.x, cell.y);
+    return (
+      cell.x > 0 &&
+      cell.y > 0 &&
+      cell.x < GRID_W - 1 &&
+      cell.y < GRID_H - 1 &&
+      !game.parks.has(key) &&
+      !game.water.has(key) &&
+      !game.roads.has(key) &&
+      !game.houses.some((house) => house.x === cell.x && house.y === cell.y) &&
+      !game.shops.some((otherShop) => otherShop.id !== shop.id && otherShop.x === cell.x && otherShop.y === cell.y)
+    );
+  });
+
+  const driveway = options[(shop.x * 3 + shop.y * 5) % Math.max(1, options.length)];
+  if (!driveway) return;
+
+  game.roads.add(keyOf(driveway.x, driveway.y));
+  setBuildingExit(game, shop, driveway);
+};
+
 export const makeGame = (): GameState => {
   const bestScore = Number(localStorage.getItem(STORAGE_KEY) ?? 0);
   const { water, parks } = makeTerrain();
-
-  return {
+  const game: GameState = {
     phase: 'running',
     score: 0,
     bestScore,
@@ -119,6 +141,9 @@ export const makeGame = (): GameState => {
     nextBuildingId: 4,
     nextMotorwayId: 1,
   };
+
+  game.shops.forEach((shop) => addShopDriveway(game, shop));
+  return game;
 };
 
 const adjacentRoads = (game: GameState, building: Building) =>
@@ -346,6 +371,7 @@ const spawnBuilding = (game: GameState) => {
       nextDemand: 4.4,
       overloadSeconds: 0,
     });
+    addShopDriveway(game, game.shops[game.shops.length - 1]);
     addToast(game, 'New stop opened');
   } else {
     game.houses.push({ id, kind: 'home', color, x: spot.x, y: spot.y, vehicleSlots: HOME_VEHICLE_SLOTS });

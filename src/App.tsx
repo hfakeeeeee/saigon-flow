@@ -67,7 +67,7 @@ function App() {
 
     const currentBuilding = buildingAt(game, cell.x, cell.y);
     if (currentBuilding) {
-      if (previousCell && game.roads.has(keyOf(previousCell.x, previousCell.y))) {
+      if (currentBuilding.kind === 'home' && previousCell && game.roads.has(keyOf(previousCell.x, previousCell.y))) {
         setBuildingExit(game, currentBuilding, previousCell);
       }
       return;
@@ -87,7 +87,7 @@ function App() {
     if (!previousCell) return;
 
     const previousBuilding = buildingAt(game, previousCell.x, previousCell.y);
-    if (previousBuilding) {
+    if (previousBuilding?.kind === 'home') {
       setBuildingExit(game, previousBuilding, cell);
       return;
     }
