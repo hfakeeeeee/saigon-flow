@@ -44,7 +44,7 @@ button {
 
 .topbar {
   display: grid;
-  grid-template-columns: minmax(200px, 0.9fr) auto minmax(260px, 0.8fr);
+  grid-template-columns: minmax(200px, 1fr) auto auto;
   align-items: center;
   gap: 14px;
   min-height: 76px;
@@ -113,91 +113,101 @@ button {
 }
 
 .week-clock {
-  min-width: 260px;
+  min-width: 134px;
+  display: grid;
+  grid-template-columns: 46px auto;
+  align-items: center;
+  gap: 10px;
   border: 1px solid rgba(21, 32, 38, 0.12);
   background: rgba(255, 250, 240, 0.78);
   border-radius: 8px;
-  padding: 9px 10px;
+  padding: 8px 10px 8px 8px;
   box-shadow: 0 10px 28px rgba(40, 51, 54, 0.08);
 }
 
-.week-clock-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-  line-height: 1;
-}
-
-.week-clock-header span {
+.week-clock-copy span {
+  display: block;
   color: rgba(21, 32, 38, 0.58);
   font-size: 0.73rem;
   font-weight: 800;
+  line-height: 1;
   text-transform: uppercase;
 }
 
-.week-clock-header strong {
+.week-clock-copy strong {
+  display: block;
+  margin-top: 5px;
   color: #152026;
-  font-size: 1rem;
+  font-size: 1.18rem;
+  line-height: 1;
 }
 
 .day-dial {
-  width: 38px;
-  height: 38px;
-  margin: 0 auto 8px;
+  width: 44px;
+  height: 44px;
+  position: relative;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background:
-    conic-gradient(#152026 var(--day-progress, 0%), rgba(21, 32, 38, 0.12) 0),
-    rgba(21, 32, 38, 0.08);
+    conic-gradient(#152026 var(--day-progress, 0%), rgba(21, 32, 38, 0.1) 0),
+    #fffaf0;
+  box-shadow:
+    inset 0 0 0 1px rgba(21, 32, 38, 0.12),
+    0 6px 14px rgba(40, 51, 54, 0.1);
+}
+
+.day-dial::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: #fffaf0;
+  box-shadow: inset 0 0 0 1px rgba(21, 32, 38, 0.1);
 }
 
 .day-dial div {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   position: relative;
+  z-index: 1;
   border-radius: 50%;
-  background: #fffaf0;
-  box-shadow: inset 0 0 0 1px rgba(21, 32, 38, 0.12);
 }
 
+.day-dial div::before,
 .day-dial div::after {
   content: "";
   position: absolute;
-  top: 4px;
   left: 50%;
-  width: 2px;
-  height: 9px;
   border-radius: 999px;
   background: #152026;
+  transform-origin: 50% 100%;
+}
+
+.day-dial div::before {
+  top: 6px;
+  width: 2px;
+  height: 9px;
   transform: translateX(-50%) rotate(calc(var(--day-progress, 0%) * 3.6deg));
-  transform-origin: 50% 9px;
 }
 
-.week-days {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 4px;
+.day-dial div::after {
+  top: 10px;
+  width: 2px;
+  height: 5px;
+  opacity: 0.45;
+  transform: translateX(-50%) rotate(90deg);
 }
 
-.week-days span {
-  min-width: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 22px;
-  border-radius: 6px;
-  color: rgba(21, 32, 38, 0.58);
-  background: rgba(21, 32, 38, 0.06);
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.week-days span.active {
-  color: #fff9ec;
+.day-dial span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
   background: #152026;
+  transform: translate(-50%, -50%);
 }
 
 .game-layout {
@@ -382,6 +392,7 @@ canvas {
   .week-clock {
     min-width: 0;
     width: 100%;
+    max-width: 180px;
   }
 
   .stat {
