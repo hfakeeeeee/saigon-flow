@@ -96,6 +96,7 @@ export const drawGame = (
     ctx.fill();
   }
 
+  drawMotorways(ctx, game, cell);
   drawRoads(ctx, game, cell);
   game.houses.forEach((building) => drawBuilding(ctx, game, building, cell));
   game.shops.forEach((building) => drawBuilding(ctx, building, cell));
@@ -109,7 +110,8 @@ export const drawGame = (
     ctx.font = `800 ${Math.max(28, cell * 1.2)}px Inter, system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(game.phase === 'paused' ? 'Paused' : 'Gridlock', mapW / 2, mapH / 2);
+    const label = game.phase === 'paused' ? 'Paused' : game.phase === 'upgrade' ? 'Upgrade' : 'Gridlock';
+    ctx.fillText(label, mapW / 2, mapH / 2);
   }
 
   ctx.restore();
@@ -176,7 +178,58 @@ const drawRoads = (ctx: CanvasRenderingContext2D, game: GameState, cell: number)
 
     drawRoadShape(x, y, 0.88, outline);
     drawRoadShape(x, y, 0.62, palette.asphalt);
+    if (game.bridgeTiles.has(road)) drawBridgeRails(ctx, x, y, cell);
+    if (game.roundabouts.has(road)) drawRoundabout(ctx, x, y, cell);
     drawLaneMarks(x, y);
+  }
+};
+
+const drawBridgeRails = (ctx: CanvasRenderingContext2D, x: number, y: number, cell: number) => {
+  ctx.strokeStyle = '#fff9ec';
+  ctx.globalAlpha = 0.85;
+  ctx.lineWidth = Math.max(1, cell * 0.045);
+  ctx.strokeRect(x * cell + cell * 0.15, y * cell + cell * 0.15, cell * 0.7, cell * 0.7);
+  ctx.globalAlpha = 1;
+};
+
+const drawRoundabout = (ctx: CanvasRenderingContext2D, x: number, y: number, cell: number) => {
+  const cx = x * cell + cell * 0.5;
+  const cy = y * cell + cell * 0.5;
+  ctx.fillStyle = '#fff9ec';
+  ctx.beginPath();
+  ctx.arc(cx, cy, cell * 0.27, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = palette.asphalt;
+  ctx.beginPath();
+  ctx.arc(cx, cy, cell * 0.17, 0, Math.PI * 2);
+  ctx.fill();
+};
+
+const drawMotorways = (ctx: CanvasRenderingContext2D, game: GameState, cell: number) => {
+  for (const motorway of game.motorways) {
+    const ax = motorway.a.x * cell + cell * 0.5;
+    const ay = motorway.a.y * cell + cell * 0.5;
+    const bx = motorway.b.x * cell + cell * 0.5;
+    const by = motorway.b.y * cell + cell * 0.5;
+
+    ctx.strokeStyle = 'rgba(21, 32, 38, 0.32)';
+    ctx.lineWidth = Math.max(5, cell * 0.24);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#fff9ec';
+    ctx.globalAlpha = 0.75;
+    ctx.lineWidth = Math.max(1, cell * 0.045);
+    ctx.setLineDash([cell * 0.22, cell * 0.18]);
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
   }
 };
 

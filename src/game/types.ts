@@ -3,8 +3,22 @@ export type Cell = { x: number; y: number };
 export type Direction = 'up' | 'right' | 'down' | 'left';
 export type ColorKey = 'coral' | 'teal' | 'gold' | 'violet';
 export type VehicleState = 'outbound' | 'returning';
-export type GamePhase = 'running' | 'paused' | 'over';
+export type GamePhase = 'running' | 'paused' | 'upgrade' | 'over';
 export type RoadOwner = ColorKey | 'mixed' | null;
+export type UpgradeKind = 'roads' | 'bridge' | 'motorway' | 'roundabout';
+
+export type UpgradeOption = {
+  kind: UpgradeKind;
+  label: string;
+  description: string;
+  amount: number;
+};
+
+export type Motorway = {
+  id: string;
+  a: Cell;
+  b: Cell;
+};
 
 export type Building = {
   id: string;
@@ -49,6 +63,9 @@ export type GameState = {
   weekProgress: number;
   nextRoadGrantDay: number;
   roadTiles: number;
+  bridges: number;
+  motorwaysAvailable: number;
+  roundaboutsAvailable: number;
   spawnTimer: number;
   elapsed: number;
   houses: Building[];
@@ -56,11 +73,16 @@ export type GameState = {
   vehicles: Vehicle[];
   roads: Set<string>;
   roadEdges: Set<string>;
+  bridgeTiles: Set<string>;
+  roundabouts: Set<string>;
+  motorways: Motorway[];
   water: Set<string>;
   parks: Set<string>;
+  upgradeOptions: UpgradeOption[];
   toast: Toast | null;
   nextVehicleId: number;
   nextBuildingId: number;
+  nextMotorwayId: number;
 };
 
 export type HudState = {
@@ -72,7 +94,11 @@ export type HudState = {
   weekDayIndex: number;
   weekProgress: number;
   roadTiles: number;
+  bridges: number;
+  motorwaysAvailable: number;
+  roundaboutsAvailable: number;
   activeVehicles: number;
   pressure: number;
+  upgradeOptions: UpgradeOption[];
   toast: Toast | null;
 };

@@ -2,18 +2,19 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { CirclePause, CirclePlay, RotateCcw, Waves } from 'lucide-react';
 import {
   buildingAt,
+  canPlaceRoadTile,
   connectRoadCells,
   disconnectRoadCell,
   getCellFromPointer,
-  isBlockedCell,
   keyOf,
   setBuildingExit,
 } from './game/grid';
 import { drawGame } from './game/renderer';
-import { makeGame, makeHud, updateGame } from './game/state';
-import type { Cell, GameState, HudState } from './game/types';
+import { chooseUpgrade, makeGame, makeHud, updateGame } from './game/state';
+import type { Cell, GameState, HudState, UpgradeKind } from './game/types';
 
 type EditAction = 'road' | 'erase';
+type PlacementMode = 'roundabout' | 'motorway' | null;
 const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function App() {
@@ -22,14 +23,18 @@ function App() {
   const animationRef = useRef<number>();
   const pointerCellRef = useRef<Cell | null>(null);
   const previousCellRef = useRef<Cell | null>(null);
+  const motorwayStartRef = useRef<Cell | null>(null);
   const drawingRef = useRef(false);
   const actionRef = useRef<EditAction>('road');
+  const [placementMode, setPlacementMode] = useState<PlacementMode>(null);
   const [hud, setHud] = useState<HudState>(() => makeHud(gameRef.current));
 
   const resetGame = useCallback(() => {
     gameRef.current = makeGame();
     pointerCellRef.current = null;
     previousCellRef.current = null;
+    motorwayStartRef.current = null;
+    setPlacementMode(null);
     setHud(makeHud(gameRef.current));
   }, []);
 
@@ -50,7 +55,12 @@ function App() {
       if (game.roads.has(key)) {
         disconnectRoadCell(game, cell);
         game.roads.delete(key);
-        game.roadTiles += 1;
+        if (game.bridgeTiles.delete(key)) {
+          game.bridges += 1;
+        } else {
+          game.roadTiles += 1;
+        }
+        if (game.roundabouts.delete(key)) game.roundaboutsAvailable += 1;
       }
       return;
     }
@@ -64,9 +74,14 @@ function App() {
     }
 
     if (!game.roads.has(key)) {
-      if (game.roadTiles <= 0 || isBlockedCell(game, cell.x, cell.y)) return;
+      if (!canPlaceRoadTile(game, cell.x, cell.y)) return;
       game.roads.add(key);
-      game.roadTiles -= 1;
+      if (game.water.has(key)) {
+        game.bridgeTiles.add(key);
+        game.bridges -= 1;
+      } else {
+        game.roadTiles -= 1;
+      }
     }
 
     if (!previousCell) return;
@@ -81,6 +96,45 @@ function App() {
       connectRoadCells(game, previousCell, cell);
     }
   }, []);
+
+  const handleSpecialPlacement = useCallback(
+    (cell: Cell | null) => {
+      if (!cell || !placementMode) return false;
+
+      const game = gameRef.current;
+      const key = keyOf(cell.x, cell.y);
+      if (!game.roads.has(key)) return true;
+
+      if (placementMode === 'roundabout') {
+        if (game.roundaboutsAvailable <= 0 || game.roundabouts.has(key)) return true;
+        game.roundabouts.add(key);
+        game.roundaboutsAvailable -= 1;
+        setPlacementMode(null);
+        setHud(makeHud(game));
+        return true;
+      }
+
+      if (game.motorwaysAvailable <= 0) return true;
+      const start = motorwayStartRef.current;
+      if (!start) {
+        motorwayStartRef.current = cell;
+        setHud(makeHud(game));
+        return true;
+      }
+
+      const startKey = keyOf(start.x, start.y);
+      if (startKey === key) return true;
+
+      game.motorways.push({ id: `m-${game.nextMotorwayId}`, a: start, b: cell });
+      game.nextMotorwayId += 1;
+      game.motorwaysAvailable -= 1;
+      motorwayStartRef.current = null;
+      setPlacementMode(null);
+      setHud(makeHud(game));
+      return true;
+    },
+    [placementMode],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -144,6 +198,7 @@ function App() {
     canvas.setPointerCapture(event.pointerId);
     const cell = getCellFromPointer(canvas, event.clientX, event.clientY);
     pointerCellRef.current = cell;
+    if (action === 'road' && handleSpecialPlacement(cell)) return;
     previousCellRef.current = cell;
     drawingRef.current = true;
     editCell(cell, null, action);
@@ -236,6 +291,34 @@ function App() {
             </button>
           </div>
 
+          <div className="upgrade-tools" aria-label="Upgrade tools">
+            <button
+              className={placementMode === 'roundabout' ? 'upgrade-tool active' : 'upgrade-tool'}
+              disabled={hud.roundaboutsAvailable <= 0}
+              type="button"
+              onClick={() => setPlacementMode(placementMode === 'roundabout' ? null : 'roundabout')}
+            >
+              <span>R</span>
+              <strong>{hud.roundaboutsAvailable}</strong>
+            </button>
+            <button
+              className={placementMode === 'motorway' ? 'upgrade-tool active' : 'upgrade-tool'}
+              disabled={hud.motorwaysAvailable <= 0}
+              type="button"
+              onClick={() => {
+                motorwayStartRef.current = null;
+                setPlacementMode(placementMode === 'motorway' ? null : 'motorway');
+              }}
+            >
+              <span>M</span>
+              <strong>{hud.motorwaysAvailable}</strong>
+            </button>
+            <div className="upgrade-count">
+              <span>B</span>
+              <strong>{hud.bridges}</strong>
+            </div>
+          </div>
+
           <div className="pressure">
             <span>Flow</span>
             <div className="pressure-track" aria-hidden="true">
@@ -265,9 +348,33 @@ function App() {
 
       <section className="status-strip" aria-label="Run details">
         <span>{hud.activeVehicles} scooters</span>
-        <span>{hud.phase === 'over' ? 'Gridlock' : hud.phase === 'paused' ? 'Paused' : 'Live'}</span>
+        <span>{hud.phase === 'over' ? 'Gridlock' : hud.phase === 'paused' ? 'Paused' : hud.phase === 'upgrade' ? 'Upgrade' : 'Live'}</span>
         <span>{hud.toast?.message ?? 'Local prototype'}</span>
       </section>
+
+      {hud.phase === 'upgrade' && (
+        <section className="upgrade-modal" aria-label="Weekly upgrade">
+          <div className="upgrade-panel">
+            <span className="upgrade-kicker">New week</span>
+            <h2>Choose an upgrade</h2>
+            <div className="upgrade-options">
+              {hud.upgradeOptions.map((option) => (
+                <button
+                  key={option.kind}
+                  type="button"
+                  onClick={() => {
+                    chooseUpgrade(gameRef.current, option.kind as UpgradeKind);
+                    setHud(makeHud(gameRef.current));
+                  }}
+                >
+                  <strong>{option.label}</strong>
+                  <span>{option.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

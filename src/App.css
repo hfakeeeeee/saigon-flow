@@ -219,7 +219,7 @@ button {
 
 .toolbar {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   gap: 10px;
   min-height: 0;
 }
@@ -267,6 +267,52 @@ button {
 .icon-button.active {
   color: #fff9ec;
   background: #152026;
+}
+
+.upgrade-tools {
+  display: grid;
+  gap: 8px;
+}
+
+.upgrade-tool,
+.upgrade-count {
+  width: 56px;
+  min-height: 46px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  border: 1px solid rgba(21, 32, 38, 0.15);
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.82);
+  color: #152026;
+  box-shadow: 0 8px 20px rgba(40, 51, 54, 0.08);
+}
+
+.upgrade-tool {
+  cursor: pointer;
+}
+
+.upgrade-tool:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.upgrade-tool.active {
+  background: #152026;
+  color: #fff9ec;
+}
+
+.upgrade-tool span,
+.upgrade-count span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.upgrade-tool strong,
+.upgrade-count strong {
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .pressure {
@@ -359,6 +405,74 @@ canvas {
   white-space: nowrap;
 }
 
+.upgrade-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(21, 32, 38, 0.48);
+}
+
+.upgrade-panel {
+  width: min(620px, 100%);
+  border: 1px solid rgba(21, 32, 38, 0.14);
+  border-radius: 8px;
+  padding: 22px;
+  background: #fffaf0;
+  box-shadow: 0 24px 80px rgba(21, 32, 38, 0.24);
+}
+
+.upgrade-kicker {
+  color: rgba(21, 32, 38, 0.58);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.upgrade-panel h2 {
+  margin: 6px 0 16px;
+  font-size: 1.55rem;
+  line-height: 1.1;
+}
+
+.upgrade-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.upgrade-options button {
+  min-height: 82px;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  border: 1px solid rgba(21, 32, 38, 0.14);
+  border-radius: 8px;
+  padding: 14px;
+  color: #152026;
+  background: rgba(245, 239, 226, 0.78);
+  cursor: pointer;
+  text-align: left;
+}
+
+.upgrade-options button:hover {
+  border-color: rgba(21, 32, 38, 0.38);
+  background: #f5efe2;
+}
+
+.upgrade-options strong {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.upgrade-options span {
+  color: rgba(21, 32, 38, 0.62);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 @media (max-width: 760px) {
   body {
     overflow: auto;
@@ -414,7 +528,7 @@ canvas {
   }
 
   .toolbar {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto auto 1fr;
     grid-template-rows: 52px;
     align-items: stretch;
   }
@@ -427,6 +541,17 @@ canvas {
   .icon-button {
     width: 48px;
     height: 48px;
+  }
+
+  .upgrade-tools {
+    grid-auto-flow: column;
+    grid-auto-columns: 48px;
+  }
+
+  .upgrade-tool,
+  .upgrade-count {
+    width: 48px;
+    min-height: 48px;
   }
 
   .pressure {
@@ -455,6 +580,10 @@ canvas {
   }
 
   .status-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .upgrade-options {
     grid-template-columns: 1fr;
   }
 }

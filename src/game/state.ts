@@ -1,10 +1,16 @@
 import { GRID_H, GRID_W, STORAGE_KEY } from './constants';
 import { cellInDirection, centerOf, hasRoadEdge, keyOf, neighborsOf, roadConnections } from './grid';
-import type { Building, Cell, ColorKey, GameState, HudState, RoadOwner, Vehicle } from './types';
+import type { Building, Cell, ColorKey, GameState, HudState, RoadOwner, UpgradeKind, UpgradeOption, Vehicle } from './types';
 
 const HOME_VEHICLE_SLOTS = 2;
 const WEEK_LENGTH_DAYS = 7;
 const WEEKLY_ROAD_GRANT = 24;
+const UPGRADE_OPTIONS: UpgradeOption[] = [
+  { kind: 'roads', label: 'Road Tiles', description: '+24 roads', amount: WEEKLY_ROAD_GRANT },
+  { kind: 'bridge', label: 'Bridge', description: '+2 bridge spans', amount: 2 },
+  { kind: 'motorway', label: 'Motorway', description: '+1 fast connector', amount: 1 },
+  { kind: 'roundabout', label: 'Roundabout', description: '+2 junction controls', amount: 2 },
+];
 
 const makeTerrain = () => {
   const water = new Set<string>();
@@ -51,6 +57,9 @@ export const makeGame = (): GameState => {
     weekProgress: 0,
     nextRoadGrantDay: WEEK_LENGTH_DAYS + 1,
     roadTiles: 64,
+    bridges: 0,
+    motorwaysAvailable: 0,
+    roundaboutsAvailable: 0,
     spawnTimer: 17,
     elapsed: 0,
     houses: [
@@ -96,11 +105,16 @@ export const makeGame = (): GameState => {
     vehicles: [],
     roads: new Set<string>(),
     roadEdges: new Set<string>(),
+    bridgeTiles: new Set<string>(),
+    roundabouts: new Set<string>(),
+    motorways: [],
     water,
     parks,
+    upgradeOptions: [],
     toast: { message: 'Saigon Flow', ttl: 2.6 },
     nextVehicleId: 1,
     nextBuildingId: 4,
+    nextMotorwayId: 1,
   };
 };
 
@@ -121,9 +135,16 @@ const findRoadPath = (game: GameState, start: Cell, goal: Cell) => {
 
     if (currentKey === goalKey) break;
 
-    for (const next of neighborsOf(current)) {
+    const nextCells = neighborsOf(current).filter((next) => hasRoadEdge(game, current, next));
+    for (const motorway of game.motorways) {
+      const currentKeyForMotorway = keyOf(current.x, current.y);
+      if (currentKeyForMotorway === keyOf(motorway.a.x, motorway.a.y)) nextCells.push(motorway.b);
+      if (currentKeyForMotorway === keyOf(motorway.b.x, motorway.b.y)) nextCells.push(motorway.a);
+    }
+
+    for (const next of nextCells) {
       const nextKey = keyOf(next.x, next.y);
-      if (!game.roads.has(nextKey) || cameFrom.has(nextKey) || !hasRoadEdge(game, current, next)) continue;
+      if (!game.roads.has(nextKey) || cameFrom.has(nextKey)) continue;
       cameFrom.set(nextKey, currentKey);
       queue.push(next);
     }
@@ -163,6 +184,26 @@ const addToast = (game: GameState, message: string) => {
   game.toast = { message, ttl: 2.2 };
 };
 
+const openUpgradePicker = (game: GameState) => {
+  game.phase = 'upgrade';
+  game.upgradeOptions = UPGRADE_OPTIONS;
+  addToast(game, `Week ${game.week} upgrades`);
+};
+
+export const chooseUpgrade = (game: GameState, kind: UpgradeKind) => {
+  const option = game.upgradeOptions.find((item) => item.kind === kind);
+  if (!option) return;
+
+  if (option.kind === 'roads') game.roadTiles += option.amount;
+  if (option.kind === 'bridge') game.bridges += option.amount;
+  if (option.kind === 'motorway') game.motorwaysAvailable += option.amount;
+  if (option.kind === 'roundabout') game.roundaboutsAvailable += option.amount;
+
+  game.upgradeOptions = [];
+  game.phase = 'running';
+  addToast(game, `${option.label} +${option.amount}`);
+};
+
 export const pressureOf = (game: GameState) =>
   game.shops.reduce((max, shop) => Math.max(max, (shop.demand ?? 0) / (shop.capacity ?? 1)), 0);
 
@@ -198,6 +239,16 @@ export const roadOwnerMap = (game: GameState) => {
       for (const next of neighborsOf(item.cell)) {
         if (game.roads.has(keyOf(next.x, next.y)) && hasRoadEdge(game, item.cell, next)) {
           queue.push({ cell: next, color: item.color, distance: item.distance + 1 });
+        }
+      }
+
+      for (const motorway of game.motorways) {
+        const itemKeyForMotorway = keyOf(item.cell.x, item.cell.y);
+        if (itemKeyForMotorway === keyOf(motorway.a.x, motorway.a.y)) {
+          queue.push({ cell: motorway.b, color: item.color, distance: item.distance + 1 });
+        }
+        if (itemKeyForMotorway === keyOf(motorway.b.x, motorway.b.y)) {
+          queue.push({ cell: motorway.a, color: item.color, distance: item.distance + 1 });
         }
       }
     }
@@ -386,13 +437,16 @@ const connectionCount = (game: GameState, cell: Cell) => {
 
 const congestionMultiplier = (game: GameState, vehicle: Vehicle, occupancy: Map<string, number>) => {
   const currentCell = { x: Math.floor(vehicle.x), y: Math.floor(vehicle.y) };
+  const currentKey = keyOf(currentCell.x, currentCell.y);
   const nextPathCell = vehicle.path[vehicle.targetIndex];
   const nextKey = nextPathCell ? keyOf(nextPathCell.x, nextPathCell.y) : keyOf(currentCell.x, currentCell.y);
-  const currentLoad = occupancy.get(keyOf(currentCell.x, currentCell.y)) ?? 0;
+  const currentLoad = occupancy.get(currentKey) ?? 0;
   const nextLoad = occupancy.get(nextKey) ?? 0;
+  const isRoundabout = game.roundabouts.has(currentKey);
   const intersectionPenalty =
-    game.roads.has(keyOf(currentCell.x, currentCell.y)) && connectionCount(game, currentCell) >= 3 ? 0.72 : 1;
-  const crowdPenalty = Math.max(0.42, 1 - Math.max(0, currentLoad - 1) * 0.18 - nextLoad * 0.1);
+    !isRoundabout && game.roads.has(currentKey) && connectionCount(game, currentCell) >= 3 ? 0.72 : 1;
+  const crowdFloor = isRoundabout ? 0.68 : 0.42;
+  const crowdPenalty = Math.max(crowdFloor, 1 - Math.max(0, currentLoad - 1) * 0.18 - nextLoad * 0.1);
 
   return intersectionPenalty * crowdPenalty;
 };
@@ -454,9 +508,9 @@ export const updateGame = (game: GameState, dt: number) => {
   game.spawnTimer -= dt;
 
   while (game.day >= game.nextRoadGrantDay) {
-    game.roadTiles += WEEKLY_ROAD_GRANT;
     game.nextRoadGrantDay += WEEK_LENGTH_DAYS;
-    addToast(game, `Week ${game.week}: +${WEEKLY_ROAD_GRANT} roads`);
+    openUpgradePicker(game);
+    return;
   }
 
   for (const shop of game.shops) {
@@ -504,4 +558,8 @@ export const makeHud = (game: GameState): HudState => ({
   activeVehicles: game.vehicles.length,
   pressure: pressureOf(game),
   toast: game.toast,
+  bridges: game.bridges,
+  motorwaysAvailable: game.motorwaysAvailable,
+  roundaboutsAvailable: game.roundaboutsAvailable,
+  upgradeOptions: game.upgradeOptions,
 });

@@ -51,6 +51,12 @@ export const buildingAt = (game: GameState, x: number, y: number): Building | un
 export const isBlockedCell = (game: GameState, x: number, y: number) =>
   !inBounds(x, y) || game.water.has(keyOf(x, y)) || game.parks.has(keyOf(x, y)) || isBuildingAt(game, x, y);
 
+export const canPlaceRoadTile = (game: GameState, x: number, y: number) => {
+  if (!inBounds(x, y) || game.parks.has(keyOf(x, y)) || isBuildingAt(game, x, y)) return false;
+  if (game.water.has(keyOf(x, y))) return game.bridges > 0;
+  return game.roadTiles > 0;
+};
+
 export const connectRoadCells = (game: GameState, a: Cell, b: Cell) => {
   if (!directionBetween(a, b)) return;
   if (!game.roads.has(keyOf(a.x, a.y)) || !game.roads.has(keyOf(b.x, b.y))) return;
@@ -69,6 +75,14 @@ export const disconnectRoadCell = (game: GameState, cell: Cell) => {
     if (!building.exit) return;
     const exitCell = cellInDirection(building, building.exit);
     if (exitCell.x === cell.x && exitCell.y === cell.y) building.exit = undefined;
+  });
+
+  game.motorways = game.motorways.filter((motorway) => {
+    const touchesCell =
+      keyOf(motorway.a.x, motorway.a.y) === keyOf(cell.x, cell.y) ||
+      keyOf(motorway.b.x, motorway.b.y) === keyOf(cell.x, cell.y);
+    if (touchesCell) game.motorwaysAvailable += 1;
+    return !touchesCell;
   });
 };
 
