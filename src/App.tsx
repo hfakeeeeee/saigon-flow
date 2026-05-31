@@ -20,6 +20,20 @@ const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const vehicleUsesRoad = (game: GameState, roadKey: string) =>
   game.vehicles.some((vehicle) => vehicle.path.some((cell) => keyOf(cell.x, cell.y) === roadKey));
 
+const isShopDriveway = (game: GameState, roadKey: string) =>
+  game.shops.some((shop) => {
+    if (!shop.exit) return false;
+    const exitCell =
+      shop.exit === 'up'
+        ? { x: shop.x, y: shop.y - 1 }
+        : shop.exit === 'right'
+          ? { x: shop.x + 1, y: shop.y }
+          : shop.exit === 'down'
+            ? { x: shop.x, y: shop.y + 1 }
+            : { x: shop.x - 1, y: shop.y };
+    return keyOf(exitCell.x, exitCell.y) === roadKey;
+  });
+
 function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef<GameState>(makeGame());
@@ -56,6 +70,7 @@ function App() {
 
     if (action === 'erase') {
       if (game.roads.has(key)) {
+        if (isShopDriveway(game, key)) return;
         if (vehicleUsesRoad(game, key)) {
           if (!game.pendingRoadRemovals.has(key)) {
             game.pendingRoadRemovals.set(key, { kind: game.bridgeTiles.has(key) ? 'bridge' : 'road' });
