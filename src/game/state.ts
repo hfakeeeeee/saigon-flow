@@ -380,24 +380,20 @@ const spawnBuilding = (game: GameState) => {
       .filter((shop) => shop.color === color)
       .reduce((sum, shop) => sum + (shop.demand ?? 0) / (shop.capacity ?? 7), 0);
 
-    return { color, houses, shops, pressure, supportGap: shops * 2 - houses };
+    return { color, houses, shops, pressure, supportGap: shops - houses };
   });
 
   const weakestColor = [...balance].sort((a, b) => {
     if (b.supportGap !== a.supportGap) return b.supportGap - a.supportGap;
     return b.pressure - a.pressure;
   })[0].color;
-  const supportedColors = balance
-    .filter((item) => item.houses >= Math.max(1, item.shops * 2) && item.shops < 4)
-    .sort((a, b) => a.shops - b.shops || b.houses - a.houses);
+  const shopReadyColors = balance
+    .filter((item) => item.houses > item.shops && item.shops < 4)
+    .sort((a, b) => b.houses - b.shops - (a.houses - a.shops) || b.pressure - a.pressure);
 
   const shouldSpawnPendingShop = game.pendingShopColors.length > 0;
-  const shouldSpawnShop =
-    shouldSpawnPendingShop ||
-    (supportedColors.length > 0 &&
-      game.houses.length >= game.shops.length * 2 + 2 &&
-      game.nextBuildingId % 4 === 0);
-  const color = shouldSpawnPendingShop ? (game.pendingShopColors[0] as ColorKey) : shouldSpawnShop ? supportedColors[0].color : weakestColor;
+  const shouldSpawnShop = shouldSpawnPendingShop || (shopReadyColors.length > 0 && game.nextBuildingId % 3 === 0);
+  const color = shouldSpawnPendingShop ? (game.pendingShopColors[0] as ColorKey) : shouldSpawnShop ? shopReadyColors[0].color : weakestColor;
   const id = `${shouldSpawnShop ? 's' : 'h'}-${game.nextBuildingId}`;
 
   if (shouldSpawnShop) {
