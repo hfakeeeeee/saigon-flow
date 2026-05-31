@@ -46,6 +46,13 @@ const makeTerrain = () => {
   return { water, parks };
 };
 
+const starterLayouts: Array<{ home: Cell; shop: Cell; color: ColorKey }> = [
+  { home: { x: 2, y: 3 }, shop: { x: 13, y: 4 }, color: 'coral' },
+  { home: { x: 27, y: 2 }, shop: { x: 20, y: 14 }, color: 'teal' },
+  { home: { x: 4, y: 14 }, shop: { x: 11, y: 11 }, color: 'gold' },
+  { home: { x: 26, y: 12 }, shop: { x: 15, y: 3 }, color: 'violet' },
+];
+
 const addShopDriveway = (game: GameState, shop: Building) => {
   const options = neighborsOf(shop).filter((cell) => {
     const key = keyOf(cell.x, cell.y);
@@ -72,6 +79,7 @@ const addShopDriveway = (game: GameState, shop: Building) => {
 export const makeGame = (): GameState => {
   const bestScore = Number(localStorage.getItem(STORAGE_KEY) ?? 0);
   const { water, parks } = makeTerrain();
+  const starter = starterLayouts[Math.floor(Math.random() * starterLayouts.length)];
   const game: GameState = {
     phase: 'running',
     score: 0,
@@ -88,42 +96,18 @@ export const makeGame = (): GameState => {
     spawnTimer: 17,
     elapsed: 0,
     houses: [
-      { id: 'h-1', kind: 'home', color: 'coral', x: 2, y: 3, vehicleSlots: HOME_VEHICLE_SLOTS },
-      { id: 'h-2', kind: 'home', color: 'teal', x: 27, y: 2, vehicleSlots: HOME_VEHICLE_SLOTS },
-      { id: 'h-3', kind: 'home', color: 'gold', x: 4, y: 14, vehicleSlots: HOME_VEHICLE_SLOTS },
+      { id: 'h-1', kind: 'home', color: starter.color, x: starter.home.x, y: starter.home.y, vehicleSlots: HOME_VEHICLE_SLOTS },
     ],
     shops: [
       {
         id: 's-1',
         kind: 'shop',
-        color: 'coral',
-        x: 13,
-        y: 4,
+        color: starter.color,
+        x: starter.shop.x,
+        y: starter.shop.y,
         demand: 2,
         capacity: 7,
         nextDemand: 3.8,
-        overloadSeconds: 0,
-      },
-      {
-        id: 's-2',
-        kind: 'shop',
-        color: 'teal',
-        x: 20,
-        y: 14,
-        demand: 2,
-        capacity: 7,
-        nextDemand: 4.6,
-        overloadSeconds: 0,
-      },
-      {
-        id: 's-3',
-        kind: 'shop',
-        color: 'gold',
-        x: 11,
-        y: 11,
-        demand: 1,
-        capacity: 7,
-        nextDemand: 5.2,
         overloadSeconds: 0,
       },
     ],
@@ -138,7 +122,7 @@ export const makeGame = (): GameState => {
     upgradeOptions: [],
     toast: { message: 'Saigon Flow', ttl: 2.6 },
     nextVehicleId: 1,
-    nextBuildingId: 4,
+    nextBuildingId: 2,
     nextMotorwayId: 1,
   };
 
