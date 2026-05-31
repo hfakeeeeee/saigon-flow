@@ -79,6 +79,8 @@ export type GameState = {
   water: Set<string>;
   parks: Set<string>;
   upgradeOptions: UpgradeOption[];
+  introducedColors: Set<ColorKey>;
+  pendingShopColors: ColorKey[];
   toast: Toast | null;
   nextVehicleId: number;
   nextBuildingId: number;

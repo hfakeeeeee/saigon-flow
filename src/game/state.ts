@@ -120,6 +120,8 @@ export const makeGame = (): GameState => {
     water,
     parks,
     upgradeOptions: [],
+    introducedColors: new Set([starter.color]),
+    pendingShopColors: [],
     toast: { message: 'Saigon Flow', ttl: 2.6 },
     nextVehicleId: 1,
     nextBuildingId: 2,
@@ -336,11 +338,13 @@ const spawnBuilding = (game: GameState) => {
     .filter((item) => item.houses >= Math.max(1, item.shops * 2) && item.shops < 4)
     .sort((a, b) => a.shops - b.shops || b.houses - a.houses);
 
+  const shouldSpawnPendingShop = game.pendingShopColors.length > 0;
   const shouldSpawnShop =
-    supportedColors.length > 0 &&
-    game.houses.length >= game.shops.length * 2 + 2 &&
-    game.nextBuildingId % 4 === 0;
-  const color = shouldSpawnShop ? supportedColors[0].color : weakestColor;
+    shouldSpawnPendingShop ||
+    (supportedColors.length > 0 &&
+      game.houses.length >= game.shops.length * 2 + 2 &&
+      game.nextBuildingId % 4 === 0);
+  const color = shouldSpawnPendingShop ? (game.pendingShopColors[0] as ColorKey) : shouldSpawnShop ? supportedColors[0].color : weakestColor;
   const id = `${shouldSpawnShop ? 's' : 'h'}-${game.nextBuildingId}`;
 
   if (shouldSpawnShop) {
@@ -356,9 +360,14 @@ const spawnBuilding = (game: GameState) => {
       overloadSeconds: 0,
     });
     addShopDriveway(game, game.shops[game.shops.length - 1]);
+    if (shouldSpawnPendingShop) game.pendingShopColors.shift();
     addToast(game, 'New stop opened');
   } else {
     game.houses.push({ id, kind: 'home', color, x: spot.x, y: spot.y, vehicleSlots: HOME_VEHICLE_SLOTS });
+    if (!game.introducedColors.has(color)) {
+      game.introducedColors.add(color);
+      game.pendingShopColors.push(color);
+    }
     addToast(game, 'New home block');
   }
 
