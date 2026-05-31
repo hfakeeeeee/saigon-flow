@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { CirclePause, CirclePlay, RotateCcw, Route, Trash2, Waves } from 'lucide-react';
+import { CirclePause, CirclePlay, RotateCcw, Waves } from 'lucide-react';
 import {
   buildingAt,
   connectRoadCells,
@@ -11,7 +11,9 @@ import {
 } from './game/grid';
 import { drawGame } from './game/renderer';
 import { makeGame, makeHud, updateGame } from './game/state';
-import type { Cell, GameState, HudState, Tool } from './game/types';
+import type { Cell, GameState, HudState } from './game/types';
+
+type EditAction = 'road' | 'erase';
 
 function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -20,8 +22,7 @@ function App() {
   const pointerCellRef = useRef<Cell | null>(null);
   const previousCellRef = useRef<Cell | null>(null);
   const drawingRef = useRef(false);
-  const toolRef = useRef<Tool>('road');
-  const [tool, setTool] = useState<Tool>('road');
+  const actionRef = useRef<EditAction>('road');
   const [hud, setHud] = useState<HudState>(() => makeHud(gameRef.current));
 
   const resetGame = useCallback(() => {
@@ -38,18 +39,13 @@ function App() {
     setHud(makeHud(game));
   }, []);
 
-  const selectTool = useCallback((nextTool: Tool) => {
-    toolRef.current = nextTool;
-    setTool(nextTool);
-  }, []);
-
-  const editCell = useCallback((cell: Cell | null, previousCell: Cell | null) => {
+  const editCell = useCallback((cell: Cell | null, previousCell: Cell | null, action: EditAction) => {
     if (!cell) return;
 
     const game = gameRef.current;
     const key = keyOf(cell.x, cell.y);
 
-    if (toolRef.current === 'erase') {
+    if (action === 'erase') {
       if (game.roads.has(key)) {
         disconnectRoadCell(game, cell);
         game.roads.delete(key);
@@ -84,10 +80,6 @@ function App() {
       connectRoadCells(game, previousCell, cell);
     }
   }, []);
-
-  useEffect(() => {
-    toolRef.current = tool;
-  }, [tool]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -132,31 +124,45 @@ function App() {
     };
   }, []);
 
+  const getActionFromPointer = (event: React.PointerEvent<HTMLCanvasElement>): EditAction | null => {
+    if (event.pointerType !== 'mouse') return 'road';
+    if (event.button === 0 || (event.buttons & 1) === 1) return 'road';
+    if (event.button === 2 || (event.buttons & 2) === 2) return 'erase';
+    return null;
+  };
+
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const action = getActionFromPointer(event);
+    if (!action) return;
+
+    actionRef.current = action;
     canvas.setPointerCapture(event.pointerId);
     const cell = getCellFromPointer(canvas, event.clientX, event.clientY);
     pointerCellRef.current = cell;
     previousCellRef.current = cell;
     drawingRef.current = true;
-    editCell(cell, null);
+    editCell(cell, null, action);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const cell = getCellFromPointer(canvas, event.clientX, event.clientY);
     pointerCellRef.current = cell;
     if (drawingRef.current) {
-      editCell(cell, previousCellRef.current);
+      editCell(cell, previousCellRef.current, actionRef.current);
       previousCellRef.current = cell;
     }
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
     const canvas = canvasRef.current;
     drawingRef.current = false;
     previousCellRef.current = null;
@@ -198,27 +204,6 @@ function App() {
 
       <section className="game-layout">
         <aside className="toolbar" aria-label="Game controls">
-          <div className="tool-group" role="group" aria-label="Tools">
-            <button
-              className={tool === 'road' ? 'icon-button active' : 'icon-button'}
-              type="button"
-              aria-label="Road tool"
-              title="Road"
-              onClick={() => selectTool('road')}
-            >
-              <Route aria-hidden="true" />
-            </button>
-            <button
-              className={tool === 'erase' ? 'icon-button active' : 'icon-button'}
-              type="button"
-              aria-label="Erase tool"
-              title="Erase"
-              onClick={() => selectTool('erase')}
-            >
-              <Trash2 aria-hidden="true" />
-            </button>
-          </div>
-
           <div className="tool-group" role="group" aria-label="Session">
             <button
               className="icon-button"
@@ -251,6 +236,7 @@ function App() {
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
+            onContextMenu={(event) => event.preventDefault()}
             onPointerLeave={() => {
               pointerCellRef.current = null;
               drawingRef.current = false;
