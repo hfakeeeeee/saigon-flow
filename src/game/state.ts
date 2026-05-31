@@ -6,12 +6,13 @@ import type { Building, Cell, ColorKey, GameState, HudState, RoadOwner, UpgradeK
 const HOME_VEHICLE_SLOTS = 2;
 const WEEK_LENGTH_DAYS = 7;
 const WEEKLY_ROAD_GRANT = 24;
+const WEEKLY_BASE_ROADS = 10;
 const TIME_SCALE = 1.16;
 const UPGRADE_OPTIONS: UpgradeOption[] = [
   { kind: 'roads', label: 'Road Tiles', description: '+24 roads', amount: WEEKLY_ROAD_GRANT },
-  { kind: 'bridge', label: 'Bridge', description: '+2 bridge spans', amount: 2 },
-  { kind: 'motorway', label: 'Motorway', description: '+1 fast connector', amount: 1 },
-  { kind: 'roundabout', label: 'Roundabout', description: '+2 junction controls', amount: 2 },
+  { kind: 'bridge', label: 'Bridge', description: '+2 bridge spans, +10 roads', amount: 2 },
+  { kind: 'motorway', label: 'Motorway', description: '+1 fast connector, +10 roads', amount: 1 },
+  { kind: 'roundabout', label: 'Roundabout', description: '+2 junction controls, +10 roads', amount: 2 },
 ];
 
 const makeTerrain = () => {
@@ -188,7 +189,8 @@ const addToast = (game: GameState, message: string) => {
 
 const openUpgradePicker = (game: GameState) => {
   game.phase = 'upgrade';
-  game.upgradeOptions = UPGRADE_OPTIONS;
+  const start = (game.week * 3 + game.score) % UPGRADE_OPTIONS.length;
+  game.upgradeOptions = [UPGRADE_OPTIONS[start], UPGRADE_OPTIONS[(start + 1 + game.week) % UPGRADE_OPTIONS.length]];
   addToast(game, `Week ${game.week} upgrades`);
 };
 
@@ -197,6 +199,7 @@ export const chooseUpgrade = (game: GameState, kind: UpgradeKind) => {
   if (!option) return;
 
   if (option.kind === 'roads') game.roadTiles += option.amount;
+  if (option.kind !== 'roads') game.roadTiles += WEEKLY_BASE_ROADS;
   if (option.kind === 'bridge') game.bridges += option.amount;
   if (option.kind === 'motorway') game.motorwaysAvailable += option.amount;
   if (option.kind === 'roundabout') game.roundaboutsAvailable += option.amount;
