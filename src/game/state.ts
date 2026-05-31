@@ -6,6 +6,7 @@ import type { Building, Cell, ColorKey, GameState, HudState, RoadOwner, UpgradeK
 const HOME_VEHICLE_SLOTS = 2;
 const WEEK_LENGTH_DAYS = 7;
 const WEEKLY_ROAD_GRANT = 24;
+const TIME_SCALE = 1.16;
 const UPGRADE_OPTIONS: UpgradeOption[] = [
   { kind: 'roads', label: 'Road Tiles', description: '+24 roads', amount: WEEKLY_ROAD_GRANT },
   { kind: 'bridge', label: 'Bridge', description: '+2 bridge spans', amount: 2 },
@@ -411,7 +412,7 @@ const dispatchVehicles = (game: GameState) => {
         y: start.y,
         path: target.path,
         targetIndex: 1,
-        speed: 4.9 + Math.min(game.score / 70, 1.8),
+        speed: 3.75 + Math.min(game.score / 90, 1.15),
       });
       game.nextVehicleId += 1;
       availableVehiclesByHome.set(target.home.id, Math.max(0, (availableVehiclesByHome.get(target.home.id) ?? 0) - 1));
@@ -491,7 +492,7 @@ const intersectionYieldMultiplier = (game: GameState, vehicle: Vehicle, vehicles
     const otherIsEnteringIntersection = otherToKey === targetKey && otherLane.progress > 0.55;
     if (!otherIsInIntersection && !otherIsEnteringIntersection) continue;
 
-    if (other.id < vehicle.id) return 0.08;
+    if (other.id < vehicle.id) return 0.035;
   }
 
   return 1;
@@ -569,7 +570,7 @@ const updateVehicles = (game: GameState, dt: number) => {
 export const updateGame = (game: GameState, dt: number) => {
   if (game.phase !== 'running') return;
 
-  game.elapsed += dt;
+  game.elapsed += dt * TIME_SCALE;
   game.day = Math.floor(game.elapsed / 24) + 1;
   game.week = Math.floor((game.day - 1) / WEEK_LENGTH_DAYS) + 1;
   game.weekDayIndex = (game.day - 1) % WEEK_LENGTH_DAYS;
