@@ -1,5 +1,6 @@
 import { GRID_H, GRID_W, STORAGE_KEY } from './constants';
 import { cellInDirection, centerOf, hasRoadEdge, keyOf, neighborsOf, roadConnections } from './grid';
+import { getVehicleLane } from './lane';
 import type { Building, Cell, ColorKey, GameState, HudState, RoadOwner, UpgradeKind, UpgradeOption, Vehicle } from './types';
 
 const HOME_VEHICLE_SLOTS = 2;
@@ -430,12 +431,51 @@ const vehicleOccupancy = (vehicles: Vehicle[]) => {
   return occupancy;
 };
 
+const laneOccupancy = (vehicles: Vehicle[]) => {
+  const lanes = new Map<string, Array<{ vehicleId: string; progress: number }>>();
+
+  for (const vehicle of vehicles) {
+    const lane = getVehicleLane(vehicle);
+    if (!lane) continue;
+    const items = lanes.get(lane.laneKey) ?? [];
+    items.push({ vehicleId: vehicle.id, progress: lane.progress });
+    lanes.set(lane.laneKey, items);
+  }
+
+  for (const items of lanes.values()) {
+    items.sort((a, b) => a.progress - b.progress);
+  }
+
+  return lanes;
+};
+
 const connectionCount = (game: GameState, cell: Cell) => {
   const connections = roadConnections(game, cell.x, cell.y);
   return Number(connections.up) + Number(connections.right) + Number(connections.down) + Number(connections.left);
 };
 
-const congestionMultiplier = (game: GameState, vehicle: Vehicle, occupancy: Map<string, number>) => {
+const followingMultiplier = (vehicle: Vehicle, lanes: Map<string, Array<{ vehicleId: string; progress: number }>>) => {
+  const lane = getVehicleLane(vehicle);
+  if (!lane) return 1;
+
+  const items = lanes.get(lane.laneKey) ?? [];
+  const index = items.findIndex((item) => item.vehicleId === vehicle.id);
+  if (index < 0 || index === items.length - 1) return 1;
+
+  const vehicleAhead = items[index + 1];
+  const gap = vehicleAhead.progress - lane.progress;
+  if (gap < 0.1) return 0.12;
+  if (gap < 0.18) return 0.35;
+  if (gap < 0.28) return 0.65;
+  return 1;
+};
+
+const congestionMultiplier = (
+  game: GameState,
+  vehicle: Vehicle,
+  occupancy: Map<string, number>,
+  lanes: Map<string, Array<{ vehicleId: string; progress: number }>>,
+) => {
   const currentCell = { x: Math.floor(vehicle.x), y: Math.floor(vehicle.y) };
   const currentKey = keyOf(currentCell.x, currentCell.y);
   const nextPathCell = vehicle.path[vehicle.targetIndex];
@@ -448,19 +488,20 @@ const congestionMultiplier = (game: GameState, vehicle: Vehicle, occupancy: Map<
   const crowdFloor = isRoundabout ? 0.68 : 0.42;
   const crowdPenalty = Math.max(crowdFloor, 1 - Math.max(0, currentLoad - 1) * 0.18 - nextLoad * 0.1);
 
-  return intersectionPenalty * crowdPenalty;
+  return intersectionPenalty * crowdPenalty * followingMultiplier(vehicle, lanes);
 };
 
 const updateVehicles = (game: GameState, dt: number) => {
   const survivors: Vehicle[] = [];
   const occupancy = vehicleOccupancy(game.vehicles);
+  const lanes = laneOccupancy(game.vehicles);
 
   for (const vehicle of game.vehicles) {
     const target = centerOf(vehicle.path[vehicle.targetIndex]);
     const dx = target.x - vehicle.x;
     const dy = target.y - vehicle.y;
     const distance = Math.hypot(dx, dy);
-    const travel = vehicle.speed * congestionMultiplier(game, vehicle, occupancy) * dt;
+    const travel = vehicle.speed * congestionMultiplier(game, vehicle, occupancy, lanes) * dt;
 
     if (distance <= travel) {
       vehicle.x = target.x;

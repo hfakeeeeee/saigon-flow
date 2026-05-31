@@ -1,5 +1,6 @@
 import { colors, GRID_H, GRID_W, palette } from './constants';
 import { inBounds, keyOf, roadConnections } from './grid';
+import { getVehicleLane } from './lane';
 import { roadOwnerMap } from './state';
 import type { Building, Cell, GameState } from './types';
 
@@ -335,12 +336,13 @@ const drawBuildingExit = (ctx: CanvasRenderingContext2D, building: Building, cel
 const drawVehicles = (ctx: CanvasRenderingContext2D, game: GameState, cell: number) => {
   for (const vehicle of game.vehicles) {
     const color = colors[vehicle.color];
-    const x = vehicle.x * cell;
-    const y = vehicle.y * cell;
+    const lane = getVehicleLane(vehicle);
+    const x = (vehicle.x + (lane?.laneOffset.x ?? 0)) * cell;
+    const y = (vehicle.y + (lane?.laneOffset.y ?? 0)) * cell;
     ctx.fillStyle = color.dark;
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(Math.sin((vehicle.x + vehicle.y) * 0.7) * 0.08);
+    ctx.rotate(lane ? lane.heading : Math.sin((vehicle.x + vehicle.y) * 0.7) * 0.08);
     drawRoundedRect(ctx, -cell * 0.2, -cell * 0.12, cell * 0.4, cell * 0.24, cell * 0.12);
     ctx.fillStyle = color.fill;
     ctx.fillRect(-cell * 0.07, -cell * 0.18, cell * 0.18, cell * 0.12);
