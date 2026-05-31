@@ -7,7 +7,7 @@ const HOME_VEHICLE_SLOTS = 2;
 const WEEK_LENGTH_DAYS = 7;
 const WEEKLY_ROAD_GRANT = 24;
 const WEEKLY_BASE_ROADS = 10;
-const TIME_SCALE = 1.16;
+const TIME_SCALE = 1.65;
 const UPGRADE_OPTIONS: UpgradeOption[] = [
   { kind: 'roads', label: 'Road Tiles', description: '+24 roads', amount: WEEKLY_ROAD_GRANT },
   { kind: 'bridge', label: 'Bridge', description: '+2 bridge spans, +10 roads', amount: 2 },
@@ -93,7 +93,7 @@ export const makeGame = (): GameState => {
     bridges: 0,
     motorwaysAvailable: 0,
     roundaboutsAvailable: 0,
-    spawnTimer: 17,
+    spawnTimer: 24,
     elapsed: 0,
     houses: [
       { id: 'h-1', kind: 'home', color: starter.color, x: starter.home.x, y: starter.home.y, vehicleSlots: HOME_VEHICLE_SLOTS },
@@ -199,9 +199,11 @@ const addToast = (game: GameState, message: string) => {
 };
 
 const openUpgradePicker = (game: GameState) => {
+  if (game.phase === 'upgrade') return;
   game.phase = 'upgrade';
   const start = (game.week * 3 + game.score) % UPGRADE_OPTIONS.length;
-  game.upgradeOptions = [UPGRADE_OPTIONS[start], UPGRADE_OPTIONS[(start + 1 + game.week) % UPGRADE_OPTIONS.length]];
+  const secondOffset = 1 + (game.week % (UPGRADE_OPTIONS.length - 1));
+  game.upgradeOptions = [UPGRADE_OPTIONS[start], UPGRADE_OPTIONS[(start + secondOffset) % UPGRADE_OPTIONS.length]];
   addToast(game, `Week ${game.week} upgrades`);
 };
 
@@ -599,7 +601,7 @@ export const updateGame = (game: GameState, dt: number) => {
   game.weekProgress = ((game.day - 1) % WEEK_LENGTH_DAYS + (game.elapsed % 24) / 24) / WEEK_LENGTH_DAYS;
   game.spawnTimer -= dt;
 
-  while (game.day >= game.nextRoadGrantDay) {
+  if (game.day >= game.nextRoadGrantDay && game.upgradeOptions.length === 0) {
     game.nextRoadGrantDay += WEEK_LENGTH_DAYS;
     openUpgradePicker(game);
     return;
@@ -626,7 +628,7 @@ export const updateGame = (game: GameState, dt: number) => {
 
   if (game.spawnTimer <= 0) {
     spawnBuilding(game);
-    game.spawnTimer = Math.max(11, 22 - game.day * 1.1);
+    game.spawnTimer = Math.max(17, 31 - game.day * 0.9);
   }
 
   dispatchVehicles(game);
