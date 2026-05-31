@@ -115,6 +115,7 @@ export const makeGame = (): GameState => {
     roads: new Set<string>(),
     roadEdges: new Set<string>(),
     bridgeTiles: new Set<string>(),
+    pendingRoadRemovals: new Map(),
     roundabouts: new Set<string>(),
     motorways: [],
     water,
@@ -591,6 +592,35 @@ const updateVehicles = (game: GameState, dt: number) => {
   game.vehicles = survivors;
 };
 
+const vehicleUsesRoad = (vehicle: Vehicle, roadKey: string) => vehicle.path.some((cell) => keyOf(cell.x, cell.y) === roadKey);
+
+const finalizePendingRoadRemovals = (game: GameState) => {
+  for (const [roadKey, pending] of game.pendingRoadRemovals) {
+    const isStillUsed = game.vehicles.some((vehicle) => vehicleUsesRoad(vehicle, roadKey));
+    if (isStillUsed) continue;
+
+    const [x, y] = roadKey.split(',').map(Number);
+    const cell = { x, y };
+    game.roads.delete(roadKey);
+    game.bridgeTiles.delete(roadKey);
+    game.roundabouts.delete(roadKey);
+    game.roadEdges.forEach((edge) => {
+      const [a, b] = edge.split('|');
+      if (a === roadKey || b === roadKey) game.roadEdges.delete(edge);
+    });
+    game.motorways = game.motorways.filter((motorway) => keyOf(motorway.a.x, motorway.a.y) !== roadKey && keyOf(motorway.b.x, motorway.b.y) !== roadKey);
+    [...game.houses, ...game.shops].forEach((building) => {
+      if (!building.exit) return;
+      const exitCell = cellInDirection(building, building.exit);
+      if (exitCell.x === cell.x && exitCell.y === cell.y) building.exit = undefined;
+    });
+
+    if (pending.kind === 'bridge') game.bridges += 1;
+    if (pending.kind === 'road') game.roadTiles += 1;
+    game.pendingRoadRemovals.delete(roadKey);
+  }
+};
+
 export const updateGame = (game: GameState, dt: number) => {
   if (game.phase !== 'running') return;
 
@@ -633,6 +663,7 @@ export const updateGame = (game: GameState, dt: number) => {
 
   dispatchVehicles(game);
   updateVehicles(game, dt);
+  finalizePendingRoadRemovals(game);
 
   if (game.toast) {
     game.toast.ttl -= dt;

@@ -175,10 +175,18 @@ const drawRoads = (ctx: CanvasRenderingContext2D, game: GameState, cell: number)
   for (const road of game.roads) {
     const [x, y] = road.split(',').map(Number);
     const owner = roadOwners.get(road) ?? null;
-    const outline = owner === 'mixed' ? '#fff9ec' : owner ? colors[owner].road : palette.asphaltDark;
+    const isPendingRemoval = game.pendingRoadRemovals.has(road);
+    const outline = isPendingRemoval
+      ? 'rgba(232, 77, 61, 0.72)'
+      : owner === 'mixed'
+        ? '#fff9ec'
+        : owner
+          ? colors[owner].road
+          : palette.asphaltDark;
+    const asphalt = isPendingRemoval ? 'rgba(95, 104, 112, 0.42)' : palette.asphalt;
 
     drawRoadShape(x, y, 0.88, outline);
-    drawRoadShape(x, y, 0.62, palette.asphalt);
+    drawRoadShape(x, y, 0.62, asphalt);
     if (game.bridgeTiles.has(road)) drawBridgeRails(ctx, x, y, cell);
     if (game.roundabouts.has(road)) drawRoundabout(ctx, x, y, cell);
     drawLaneMarks(x, y);

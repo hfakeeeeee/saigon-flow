@@ -20,6 +20,10 @@ export type Motorway = {
   b: Cell;
 };
 
+export type PendingRoadRemoval = {
+  kind: 'road' | 'bridge';
+};
+
 export type Building = {
   id: string;
   kind: 'home' | 'shop';
@@ -74,6 +78,7 @@ export type GameState = {
   roads: Set<string>;
   roadEdges: Set<string>;
   bridgeTiles: Set<string>;
+  pendingRoadRemovals: Map<string, PendingRoadRemoval>;
   roundabouts: Set<string>;
   motorways: Motorway[];
   water: Set<string>;

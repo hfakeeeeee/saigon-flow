@@ -17,6 +17,9 @@ type EditAction = 'road' | 'erase';
 type PlacementMode = 'roundabout' | 'motorway' | null;
 const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+const vehicleUsesRoad = (game: GameState, roadKey: string) =>
+  game.vehicles.some((vehicle) => vehicle.path.some((cell) => keyOf(cell.x, cell.y) === roadKey));
+
 function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef<GameState>(makeGame());
@@ -53,6 +56,13 @@ function App() {
 
     if (action === 'erase') {
       if (game.roads.has(key)) {
+        if (vehicleUsesRoad(game, key)) {
+          if (!game.pendingRoadRemovals.has(key)) {
+            game.pendingRoadRemovals.set(key, { kind: game.bridgeTiles.has(key) ? 'bridge' : 'road' });
+          }
+          return;
+        }
+
         disconnectRoadCell(game, cell);
         game.roads.delete(key);
         if (game.bridgeTiles.delete(key)) {
