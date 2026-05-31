@@ -135,7 +135,10 @@ export const makeGame = (): GameState => {
 
 const adjacentRoads = (game: GameState, building: Building) =>
   building.exit
-    ? [cellInDirection(building, building.exit)].filter((cell) => game.roads.has(keyOf(cell.x, cell.y)))
+    ? [cellInDirection(building, building.exit)].filter((cell) => {
+        const key = keyOf(cell.x, cell.y);
+        return game.roads.has(key) && !game.pendingRoadRemovals.has(key);
+      })
     : [];
 
 const findRoadPath = (game: GameState, start: Cell, goal: Cell) => {
@@ -159,7 +162,7 @@ const findRoadPath = (game: GameState, start: Cell, goal: Cell) => {
 
     for (const next of nextCells) {
       const nextKey = keyOf(next.x, next.y);
-      if (!game.roads.has(nextKey) || cameFrom.has(nextKey)) continue;
+      if (!game.roads.has(nextKey) || game.pendingRoadRemovals.has(nextKey) || cameFrom.has(nextKey)) continue;
       cameFrom.set(nextKey, currentKey);
       queue.push(next);
     }
@@ -592,7 +595,8 @@ const updateVehicles = (game: GameState, dt: number) => {
   game.vehicles = survivors;
 };
 
-const vehicleUsesRoad = (vehicle: Vehicle, roadKey: string) => vehicle.path.some((cell) => keyOf(cell.x, cell.y) === roadKey);
+const vehicleUsesRoad = (vehicle: Vehicle, roadKey: string) =>
+  vehicle.path.slice(Math.max(0, vehicle.targetIndex - 1)).some((cell) => keyOf(cell.x, cell.y) === roadKey);
 
 const finalizePendingRoadRemovals = (game: GameState) => {
   for (const [roadKey, pending] of game.pendingRoadRemovals) {
