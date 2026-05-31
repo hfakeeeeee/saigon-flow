@@ -1,5 +1,5 @@
-import { colors, GRID_H, GRID_W, palette } from './constants';
-import { inBounds, keyOf, roadConnections } from './grid';
+import { colors, palette } from './constants';
+import { inBounds, inVisibleBounds, keyOf, roadConnections } from './grid';
 import { getVehicleLane } from './lane';
 import { roadOwnerMap } from './state';
 import type { Building, Cell, GameState } from './types';
@@ -26,11 +26,16 @@ export const drawGame = (
 ) => {
   ctx.clearRect(0, 0, width, height);
 
-  const cell = Math.floor(Math.min(width / (GRID_W + 1.3), height / (GRID_H + 1.3)));
-  const mapW = cell * GRID_W;
-  const mapH = cell * GRID_H;
+  const bounds = game.visibleBounds;
+  const boundsW = bounds.maxX - bounds.minX + 1;
+  const boundsH = bounds.maxY - bounds.minY + 1;
+  const cell = Math.floor(Math.min(width / (boundsW + 1.3), height / (boundsH + 1.3)));
+  const mapW = cell * boundsW;
+  const mapH = cell * boundsH;
   const offsetX = Math.floor((width - mapW) / 2);
   const offsetY = Math.floor((height - mapH) / 2);
+  const mapX = bounds.minX * cell;
+  const mapY = bounds.minY * cell;
 
   ctx.fillStyle = '#efe4d1';
   ctx.fillRect(0, 0, width, height);
@@ -43,26 +48,30 @@ export const drawGame = (
   ctx.fillRect(0, 0, width, height);
 
   ctx.save();
-  ctx.translate(offsetX, offsetY);
+  ctx.translate(offsetX - mapX, offsetY - mapY);
 
   ctx.fillStyle = palette.ground;
-  drawRoundedRect(ctx, -cell * 0.28, -cell * 0.28, mapW + cell * 0.56, mapH + cell * 0.56, cell * 0.3);
+  drawRoundedRect(ctx, mapX - cell * 0.28, mapY - cell * 0.28, mapW + cell * 0.56, mapH + cell * 0.56, cell * 0.3);
 
-  for (let x = 0; x <= GRID_W; x += 1) {
+  ctx.beginPath();
+  ctx.rect(mapX, mapY, mapW, mapH);
+  ctx.clip();
+
+  for (let x = bounds.minX; x <= bounds.maxX + 1; x += 1) {
     ctx.strokeStyle = palette.grid;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(x * cell, 0);
-    ctx.lineTo(x * cell, mapH);
+    ctx.moveTo(x * cell, mapY);
+    ctx.lineTo(x * cell, mapY + mapH);
     ctx.stroke();
   }
 
-  for (let y = 0; y <= GRID_H; y += 1) {
+  for (let y = bounds.minY; y <= bounds.maxY + 1; y += 1) {
     ctx.strokeStyle = palette.grid;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, y * cell);
-    ctx.lineTo(mapW, y * cell);
+    ctx.moveTo(mapX, y * cell);
+    ctx.lineTo(mapX + mapW, y * cell);
     ctx.stroke();
   }
 
@@ -80,6 +89,7 @@ export const drawGame = (
 
   for (const item of game.water) {
     const [x, y] = item.split(',').map(Number);
+    if (!inVisibleBounds(bounds, x, y)) continue;
     fillCell(x, y, palette.water, 0.02);
     ctx.fillStyle = palette.waterDeep;
     ctx.globalAlpha = 0.18;
@@ -89,6 +99,7 @@ export const drawGame = (
 
   for (const item of game.parks) {
     const [x, y] = item.split(',').map(Number);
+    if (!inVisibleBounds(bounds, x, y)) continue;
     fillCell(x, y, palette.park, 0.08);
     ctx.fillStyle = '#5e9957';
     ctx.beginPath();
@@ -106,13 +117,13 @@ export const drawGame = (
 
   if (game.phase !== 'running') {
     ctx.fillStyle = 'rgba(21, 32, 38, 0.52)';
-    ctx.fillRect(0, 0, mapW, mapH);
+    ctx.fillRect(mapX, mapY, mapW, mapH);
     ctx.fillStyle = '#fff9ec';
     ctx.font = `800 ${Math.max(28, cell * 1.2)}px Inter, system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const label = game.phase === 'paused' ? 'Paused' : game.phase === 'upgrade' ? 'Upgrade' : 'Gridlock';
-    ctx.fillText(label, mapW / 2, mapH / 2);
+    ctx.fillText(label, mapX + mapW / 2, mapY + mapH / 2);
   }
 
   ctx.restore();
@@ -174,6 +185,7 @@ const drawRoads = (ctx: CanvasRenderingContext2D, game: GameState, cell: number)
 
   for (const road of game.roads) {
     const [x, y] = road.split(',').map(Number);
+    if (!inVisibleBounds(game.visibleBounds, x, y)) continue;
     const owner = roadOwners.get(road) ?? null;
     const isPendingRemoval = game.pendingRoadRemovals.has(road);
     const outline = isPendingRemoval
@@ -216,6 +228,10 @@ const drawRoundabout = (ctx: CanvasRenderingContext2D, x: number, y: number, cel
 
 const drawMotorways = (ctx: CanvasRenderingContext2D, game: GameState, cell: number) => {
   for (const motorway of game.motorways) {
+    if (!inVisibleBounds(game.visibleBounds, motorway.a.x, motorway.a.y) || !inVisibleBounds(game.visibleBounds, motorway.b.x, motorway.b.y)) {
+      continue;
+    }
+
     const ax = motorway.a.x * cell + cell * 0.5;
     const ay = motorway.a.y * cell + cell * 0.5;
     const bx = motorway.b.x * cell + cell * 0.5;
@@ -271,10 +287,23 @@ const drawBuilding = (ctx: CanvasRenderingContext2D, gameOrBuilding: GameState |
   }
 
   ctx.fillStyle = color.fill;
+  if ((building.level ?? 1) >= 2) {
+    ctx.strokeStyle = color.road;
+    ctx.globalAlpha = 0.32;
+    ctx.lineWidth = Math.max(3, cell * 0.12);
+    ctx.beginPath();
+    ctx.roundRect(bx + cell * 0.1, by + cell * 0.09, cell * 0.8, cell * 0.8, cell * 0.16);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = color.dark;
+  }
   drawRoundedRect(ctx, bx + cell * 0.14, by + cell * 0.13, cell * 0.72, cell * 0.72, cell * 0.12);
   ctx.strokeRect(bx + cell * 0.23, by + cell * 0.24, cell * 0.54, cell * 0.5);
   ctx.fillStyle = color.dark;
   ctx.fillRect(bx + cell * 0.32, by + cell * 0.32, cell * 0.36, cell * 0.1);
+  if ((building.level ?? 1) >= 2) {
+    ctx.fillRect(bx + cell * 0.32, by + cell * 0.52, cell * 0.36, cell * 0.1);
+  }
 
   const demand = building.demand ?? 0;
   if (demand > 0) {
@@ -364,7 +393,7 @@ const drawVehicles = (ctx: CanvasRenderingContext2D, game: GameState, cell: numb
 };
 
 const drawPointer = (ctx: CanvasRenderingContext2D, game: GameState, pointerCell: Cell | null, cell: number) => {
-  if (!pointerCell || !inBounds(pointerCell.x, pointerCell.y)) return;
+  if (!pointerCell || !inBounds(pointerCell.x, pointerCell.y) || !inVisibleBounds(game.visibleBounds, pointerCell.x, pointerCell.y)) return;
 
   const invalid = game.water.has(keyOf(pointerCell.x, pointerCell.y)) || game.parks.has(keyOf(pointerCell.x, pointerCell.y));
   ctx.fillStyle = invalid ? 'rgba(232, 77, 61, 0.18)' : 'rgba(21, 32, 38, 0.12)';

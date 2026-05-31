@@ -1,5 +1,14 @@
 import { GRID_H, GRID_W, STORAGE_KEY } from './constants';
-import { cellInDirection, centerOf, hasRoadEdge, keyOf, neighborsOf, roadConnections, setBuildingExit } from './grid';
+import {
+  cellInDirection,
+  centerOf,
+  hasRoadEdge,
+  inVisibleBounds,
+  keyOf,
+  neighborsOf,
+  roadConnections,
+  setBuildingExit,
+} from './grid';
 import { getVehicleLane } from './lane';
 import type { Building, Cell, ColorKey, GameState, HudState, RoadOwner, UpgradeKind, UpgradeOption, Vehicle } from './types';
 
@@ -8,6 +17,7 @@ const WEEK_LENGTH_DAYS = 7;
 const WEEKLY_ROAD_GRANT = 24;
 const WEEKLY_BASE_ROADS = 10;
 const TIME_SCALE = 1.65;
+const INITIAL_VISIBLE_BOUNDS = { minX: 8, maxX: 21, minY: 5, maxY: 14 };
 const UPGRADE_OPTIONS: UpgradeOption[] = [
   { kind: 'roads', label: 'Road Tiles', description: '+24 roads', amount: WEEKLY_ROAD_GRANT },
   { kind: 'bridge', label: 'Bridge', description: '+2 bridge spans, +10 roads', amount: 2 },
@@ -47,10 +57,10 @@ const makeTerrain = () => {
 };
 
 const starterLayouts: Array<{ home: Cell; shop: Cell; color: ColorKey }> = [
-  { home: { x: 2, y: 3 }, shop: { x: 13, y: 4 }, color: 'coral' },
-  { home: { x: 27, y: 2 }, shop: { x: 20, y: 14 }, color: 'teal' },
-  { home: { x: 4, y: 14 }, shop: { x: 11, y: 11 }, color: 'gold' },
-  { home: { x: 26, y: 12 }, shop: { x: 15, y: 3 }, color: 'violet' },
+  { home: { x: 10, y: 6 }, shop: { x: 18, y: 7 }, color: 'coral' },
+  { home: { x: 19, y: 6 }, shop: { x: 12, y: 12 }, color: 'teal' },
+  { home: { x: 10, y: 12 }, shop: { x: 19, y: 10 }, color: 'gold' },
+  { home: { x: 16, y: 6 }, shop: { x: 11, y: 10 }, color: 'violet' },
 ];
 
 const addShopDriveway = (game: GameState, shop: Building) => {
@@ -61,6 +71,7 @@ const addShopDriveway = (game: GameState, shop: Building) => {
       cell.y > 0 &&
       cell.x < GRID_W - 1 &&
       cell.y < GRID_H - 1 &&
+      inVisibleBounds(game.visibleBounds, cell.x, cell.y) &&
       !game.parks.has(key) &&
       !game.water.has(key) &&
       !game.roads.has(key) &&
@@ -90,6 +101,7 @@ export const makeGame = (): GameState => {
     weekProgress: 0,
     nextRoadGrantDay: WEEK_LENGTH_DAYS + 1,
     roadTiles: 40,
+    visibleBounds: { ...INITIAL_VISIBLE_BOUNDS },
     bridges: 1,
     motorwaysAvailable: 0,
     roundaboutsAvailable: 0,
@@ -109,6 +121,7 @@ export const makeGame = (): GameState => {
         capacity: 7,
         nextDemand: 3.8,
         overloadSeconds: 0,
+        level: 1,
       },
     ],
     vehicles: [],
@@ -211,6 +224,40 @@ const openUpgradePicker = (game: GameState) => {
   addToast(game, `Week ${game.week} upgrades`);
 };
 
+const expandVisibleBounds = (game: GameState) => {
+  const before = game.visibleBounds;
+  const next = {
+    minX: Math.max(0, before.minX - 2),
+    maxX: Math.min(GRID_W - 1, before.maxX + 2),
+    minY: Math.max(0, before.minY - 1),
+    maxY: Math.min(GRID_H - 1, before.maxY + 1),
+  };
+
+  game.visibleBounds = next;
+  return next.minX !== before.minX || next.maxX !== before.maxX || next.minY !== before.minY || next.maxY !== before.maxY;
+};
+
+const upgradeShopForWeek = (game: GameState) => {
+  if (game.week < 3) return false;
+
+  const candidates = game.shops
+    .filter((shop) => (shop.level ?? 1) < 2)
+    .sort((a, b) => {
+      const pressureA = (a.demand ?? 0) / (a.capacity ?? 7);
+      const pressureB = (b.demand ?? 0) / (b.capacity ?? 7);
+      return pressureB - pressureA || (b.demand ?? 0) - (a.demand ?? 0);
+    });
+
+  const shop = candidates[0];
+  if (!shop) return false;
+
+  shop.level = 2;
+  shop.capacity = 11;
+  shop.demand = Math.min(10, (shop.demand ?? 0) + 2);
+  shop.nextDemand = Math.min(shop.nextDemand ?? 3.5, 2.4);
+  return true;
+};
+
 export const chooseUpgrade = (game: GameState, kind: UpgradeKind) => {
   const option = game.upgradeOptions.find((item) => item.kind === kind);
   if (!option) return;
@@ -297,8 +344,8 @@ const spawnBuilding = (game: GameState) => {
     );
 
   let candidates: Cell[] = [];
-  for (let y = 1; y < GRID_H - 1; y += 1) {
-    for (let x = 1; x < GRID_W - 1; x += 1) {
+  for (let y = Math.max(1, game.visibleBounds.minY); y <= Math.min(GRID_H - 2, game.visibleBounds.maxY); y += 1) {
+    for (let x = Math.max(1, game.visibleBounds.minX); x <= Math.min(GRID_W - 2, game.visibleBounds.maxX); x += 1) {
       const cell = { x, y };
       if (occupied.has(keyOf(x, y))) continue;
       if (distanceToNearestBuilding(cell) < 3) continue;
@@ -308,8 +355,8 @@ const spawnBuilding = (game: GameState) => {
 
   if (candidates.length === 0) {
     candidates = [];
-    for (let y = 1; y < GRID_H - 1; y += 1) {
-      for (let x = 1; x < GRID_W - 1; x += 1) {
+    for (let y = Math.max(1, game.visibleBounds.minY); y <= Math.min(GRID_H - 2, game.visibleBounds.maxY); y += 1) {
+      for (let x = Math.max(1, game.visibleBounds.minX); x <= Math.min(GRID_W - 2, game.visibleBounds.maxX); x += 1) {
         if (!occupied.has(keyOf(x, y))) candidates.push({ x, y });
       }
     }
@@ -364,6 +411,7 @@ const spawnBuilding = (game: GameState) => {
       capacity: 7,
       nextDemand: 4.4,
       overloadSeconds: 0,
+      level: 1,
     });
     addShopDriveway(game, game.shops[game.shops.length - 1]);
     if (shouldSpawnPendingShop) game.pendingShopColors.shift();
@@ -637,16 +685,26 @@ export const updateGame = (game: GameState, dt: number) => {
 
   if (game.day >= game.nextRoadGrantDay && game.upgradeOptions.length === 0) {
     game.nextRoadGrantDay += WEEK_LENGTH_DAYS;
+    const expanded = expandVisibleBounds(game);
+    const upgradedShop = upgradeShopForWeek(game);
     openUpgradePicker(game);
+    if (expanded || upgradedShop) {
+      addToast(game, upgradedShop ? 'City expanded + super shop' : 'City expanded');
+    }
     return;
   }
 
   for (const shop of game.shops) {
+    const shopLevel = shop.level ?? 1;
+    const demandCap = shopLevel >= 2 ? 18 : 12;
+    const baseInterval = shopLevel >= 2 ? 3.1 : 5.2;
+    const minimumInterval = shopLevel >= 2 ? 1.55 : 2.35;
+    const randomSpread = shopLevel >= 2 ? 0.95 : 1.2;
     const speedUp = Math.min(game.score / 120, 1.2);
     shop.nextDemand = (shop.nextDemand ?? 4.5) - dt;
     if ((shop.nextDemand ?? 0) <= 0) {
-      shop.demand = Math.min(12, (shop.demand ?? 0) + 1);
-      shop.nextDemand = Math.max(2.35, 5.2 - speedUp - Math.random() * 1.2);
+      shop.demand = Math.min(demandCap, (shop.demand ?? 0) + 1);
+      shop.nextDemand = Math.max(minimumInterval, baseInterval - speedUp - Math.random() * randomSpread);
     }
 
     if ((shop.demand ?? 0) >= (shop.capacity ?? 7)) {

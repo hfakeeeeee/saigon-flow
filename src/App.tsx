@@ -221,7 +221,7 @@ function App() {
 
     actionRef.current = action;
     canvas.setPointerCapture(event.pointerId);
-    const cell = getCellFromPointer(canvas, event.clientX, event.clientY);
+    const cell = getCellFromPointer(canvas, event.clientX, event.clientY, gameRef.current.visibleBounds);
     pointerCellRef.current = cell;
     if (action === 'road' && handleSpecialPlacement(cell)) return;
     previousCellRef.current = cell;
@@ -234,7 +234,7 @@ function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const cell = getCellFromPointer(canvas, event.clientX, event.clientY);
+    const cell = getCellFromPointer(canvas, event.clientX, event.clientY, gameRef.current.visibleBounds);
     pointerCellRef.current = cell;
     if (drawingRef.current) {
       editCell(cell, previousCellRef.current, actionRef.current);

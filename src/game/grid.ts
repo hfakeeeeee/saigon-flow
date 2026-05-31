@@ -1,9 +1,12 @@
 import { GRID_H, GRID_W } from './constants';
-import type { Building, Cell, Direction, GameState } from './types';
+import type { Building, Cell, Direction, GameState, MapBounds } from './types';
 
 export const keyOf = (x: number, y: number) => `${x},${y}`;
 
 export const inBounds = (x: number, y: number) => x >= 0 && y >= 0 && x < GRID_W && y < GRID_H;
+
+export const inVisibleBounds = (bounds: MapBounds, x: number, y: number) =>
+  x >= bounds.minX && x <= bounds.maxX && y >= bounds.minY && y <= bounds.maxY;
 
 export const neighborsOf = ({ x, y }: Cell) => [
   { x: x + 1, y },
@@ -52,7 +55,7 @@ export const isBlockedCell = (game: GameState, x: number, y: number) =>
   !inBounds(x, y) || game.water.has(keyOf(x, y)) || game.parks.has(keyOf(x, y)) || isBuildingAt(game, x, y);
 
 export const canPlaceRoadTile = (game: GameState, x: number, y: number) => {
-  if (!inBounds(x, y) || game.parks.has(keyOf(x, y)) || isBuildingAt(game, x, y)) return false;
+  if (!inBounds(x, y) || !inVisibleBounds(game.visibleBounds, x, y) || game.parks.has(keyOf(x, y)) || isBuildingAt(game, x, y)) return false;
   if (game.water.has(keyOf(x, y))) return game.bridges > 0;
   return game.roadTiles > 0;
 };
@@ -117,16 +120,23 @@ export const roadConnections = (game: GameState, x: number, y: number) => {
   };
 };
 
-export const getCellFromPointer = (canvas: HTMLCanvasElement, clientX: number, clientY: number): Cell | null => {
+export const getCellFromPointer = (
+  canvas: HTMLCanvasElement,
+  clientX: number,
+  clientY: number,
+  bounds: MapBounds,
+): Cell | null => {
   const rect = canvas.getBoundingClientRect();
   const width = rect.width;
   const height = rect.height;
-  const cell = Math.floor(Math.min(width / (GRID_W + 1.3), height / (GRID_H + 1.3)));
-  const offsetX = Math.floor((width - cell * GRID_W) / 2);
-  const offsetY = Math.floor((height - cell * GRID_H) / 2);
-  const x = Math.floor((clientX - rect.left - offsetX) / cell);
-  const y = Math.floor((clientY - rect.top - offsetY) / cell);
+  const boundsW = bounds.maxX - bounds.minX + 1;
+  const boundsH = bounds.maxY - bounds.minY + 1;
+  const cell = Math.floor(Math.min(width / (boundsW + 1.3), height / (boundsH + 1.3)));
+  const offsetX = Math.floor((width - cell * boundsW) / 2);
+  const offsetY = Math.floor((height - cell * boundsH) / 2);
+  const x = Math.floor((clientX - rect.left - offsetX) / cell) + bounds.minX;
+  const y = Math.floor((clientY - rect.top - offsetY) / cell) + bounds.minY;
 
-  if (!inBounds(x, y)) return null;
+  if (!inBounds(x, y) || !inVisibleBounds(bounds, x, y)) return null;
   return { x, y };
 };

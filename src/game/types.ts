@@ -6,6 +6,14 @@ export type VehicleState = 'outbound' | 'returning';
 export type GamePhase = 'running' | 'paused' | 'upgrade' | 'over';
 export type RoadOwner = ColorKey | 'mixed' | null;
 export type UpgradeKind = 'roads' | 'bridge' | 'motorway' | 'roundabout';
+export type ShopLevel = 1 | 2;
+
+export type MapBounds = {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
 
 export type UpgradeOption = {
   kind: UpgradeKind;
@@ -36,6 +44,7 @@ export type Building = {
   capacity?: number;
   nextDemand?: number;
   overloadSeconds?: number;
+  level?: ShopLevel;
   exit?: Direction;
 };
 
@@ -67,6 +76,7 @@ export type GameState = {
   weekProgress: number;
   nextRoadGrantDay: number;
   roadTiles: number;
+  visibleBounds: MapBounds;
   bridges: number;
   motorwaysAvailable: number;
   roundaboutsAvailable: number;
