@@ -47,6 +47,8 @@ export const makeGame = (): GameState => {
     bestScore,
     day: 1,
     week: 1,
+    weekDayIndex: 0,
+    weekProgress: 0,
     nextRoadGrantDay: WEEK_LENGTH_DAYS + 1,
     roadTiles: 64,
     spawnTimer: 17,
@@ -447,6 +449,8 @@ export const updateGame = (game: GameState, dt: number) => {
   game.elapsed += dt;
   game.day = Math.floor(game.elapsed / 24) + 1;
   game.week = Math.floor((game.day - 1) / WEEK_LENGTH_DAYS) + 1;
+  game.weekDayIndex = (game.day - 1) % WEEK_LENGTH_DAYS;
+  game.weekProgress = ((game.day - 1) % WEEK_LENGTH_DAYS + (game.elapsed % 24) / 24) / WEEK_LENGTH_DAYS;
   game.spawnTimer -= dt;
 
   while (game.day >= game.nextRoadGrantDay) {
@@ -494,6 +498,8 @@ export const makeHud = (game: GameState): HudState => ({
   bestScore: game.bestScore,
   day: game.day,
   week: game.week,
+  weekDayIndex: game.weekDayIndex,
+  weekProgress: game.weekProgress,
   roadTiles: game.roadTiles,
   activeVehicles: game.vehicles.length,
   pressure: pressureOf(game),

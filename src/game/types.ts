@@ -45,6 +45,8 @@ export type GameState = {
   bestScore: number;
   day: number;
   week: number;
+  weekDayIndex: number;
+  weekProgress: number;
   nextRoadGrantDay: number;
   roadTiles: number;
   spawnTimer: number;
@@ -67,6 +69,8 @@ export type HudState = {
   bestScore: number;
   day: number;
   week: number;
+  weekDayIndex: number;
+  weekProgress: number;
   roadTiles: number;
   activeVehicles: number;
   pressure: number;

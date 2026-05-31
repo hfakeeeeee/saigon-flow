@@ -14,6 +14,7 @@ import { makeGame, makeHud, updateGame } from './game/state';
 import type { Cell, GameState, HudState } from './game/types';
 
 type EditAction = 'road' | 'erase';
+const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
 function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -198,6 +199,23 @@ function App() {
           <div className="stat">
             <span>Road</span>
             <strong>{hud.roadTiles}</strong>
+          </div>
+        </div>
+
+        <div className="week-clock" aria-label="Week progress">
+          <div className="week-clock-header">
+            <span>Week {hud.week}</span>
+            <strong>{weekDays[hud.weekDayIndex]}</strong>
+          </div>
+          <div className="week-days">
+            {weekDays.map((day, index) => (
+              <span className={index === hud.weekDayIndex ? 'active' : ''} key={day}>
+                {day}
+              </span>
+            ))}
+          </div>
+          <div className="week-progress" aria-hidden="true">
+            <div style={{ '--week-progress': `${Math.min(100, Math.round(hud.weekProgress * 100))}%` } as CSSProperties} />
           </div>
         </div>
       </section>

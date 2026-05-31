@@ -44,7 +44,7 @@ button {
 
 .topbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(200px, 0.9fr) auto minmax(260px, 0.8fr);
   align-items: center;
   gap: 14px;
   min-height: 76px;
@@ -110,6 +110,76 @@ button {
   color: #152026;
   font-size: 1.45rem;
   line-height: 1;
+}
+
+.week-clock {
+  min-width: 260px;
+  border: 1px solid rgba(21, 32, 38, 0.12);
+  background: rgba(255, 250, 240, 0.78);
+  border-radius: 8px;
+  padding: 9px 10px;
+  box-shadow: 0 10px 28px rgba(40, 51, 54, 0.08);
+}
+
+.week-clock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  line-height: 1;
+}
+
+.week-clock-header span {
+  color: rgba(21, 32, 38, 0.58);
+  font-size: 0.73rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.week-clock-header strong {
+  color: #152026;
+  font-size: 1rem;
+}
+
+.week-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.week-days span {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 22px;
+  border-radius: 6px;
+  color: rgba(21, 32, 38, 0.58);
+  background: rgba(21, 32, 38, 0.06);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.week-days span.active {
+  color: #fff9ec;
+  background: #152026;
+}
+
+.week-progress {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(21, 32, 38, 0.12);
+}
+
+.week-progress div {
+  width: var(--week-progress, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #50c9c3, #f3bd44);
+  transition: width 160ms ease;
 }
 
 .game-layout {
@@ -289,6 +359,11 @@ canvas {
 
   .stat-row {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .week-clock {
+    min-width: 0;
+    width: 100%;
   }
 
   .stat {
