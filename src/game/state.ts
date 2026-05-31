@@ -470,11 +470,39 @@ const followingMultiplier = (vehicle: Vehicle, lanes: Map<string, Array<{ vehicl
   return 1;
 };
 
+const isIntersectionCell = (game: GameState, cell: Cell) =>
+  game.roads.has(keyOf(cell.x, cell.y)) && connectionCount(game, cell) >= 3;
+
+const intersectionYieldMultiplier = (game: GameState, vehicle: Vehicle, vehicles: Vehicle[]) => {
+  const lane = getVehicleLane(vehicle);
+  if (!lane || lane.progress < 0.72) return 1;
+
+  const targetKey = keyOf(lane.to.x, lane.to.y);
+  if (!isIntersectionCell(game, lane.to) || game.roundabouts.has(targetKey)) return 1;
+
+  for (const other of vehicles) {
+    if (other.id === vehicle.id) continue;
+    const otherLane = getVehicleLane(other);
+    if (!otherLane) continue;
+
+    const otherToKey = keyOf(otherLane.to.x, otherLane.to.y);
+    const otherFromKey = keyOf(otherLane.from.x, otherLane.from.y);
+    const otherIsInIntersection = otherFromKey === targetKey && otherLane.progress < 0.45;
+    const otherIsEnteringIntersection = otherToKey === targetKey && otherLane.progress > 0.55;
+    if (!otherIsInIntersection && !otherIsEnteringIntersection) continue;
+
+    if (other.id < vehicle.id) return 0.08;
+  }
+
+  return 1;
+};
+
 const congestionMultiplier = (
   game: GameState,
   vehicle: Vehicle,
   occupancy: Map<string, number>,
   lanes: Map<string, Array<{ vehicleId: string; progress: number }>>,
+  vehicles: Vehicle[],
 ) => {
   const currentCell = { x: Math.floor(vehicle.x), y: Math.floor(vehicle.y) };
   const currentKey = keyOf(currentCell.x, currentCell.y);
@@ -488,7 +516,7 @@ const congestionMultiplier = (
   const crowdFloor = isRoundabout ? 0.68 : 0.42;
   const crowdPenalty = Math.max(crowdFloor, 1 - Math.max(0, currentLoad - 1) * 0.18 - nextLoad * 0.1);
 
-  return intersectionPenalty * crowdPenalty * followingMultiplier(vehicle, lanes);
+  return intersectionPenalty * crowdPenalty * followingMultiplier(vehicle, lanes) * intersectionYieldMultiplier(game, vehicle, vehicles);
 };
 
 const updateVehicles = (game: GameState, dt: number) => {
@@ -501,7 +529,7 @@ const updateVehicles = (game: GameState, dt: number) => {
     const dx = target.x - vehicle.x;
     const dy = target.y - vehicle.y;
     const distance = Math.hypot(dx, dy);
-    const travel = vehicle.speed * congestionMultiplier(game, vehicle, occupancy, lanes) * dt;
+    const travel = vehicle.speed * congestionMultiplier(game, vehicle, occupancy, lanes, game.vehicles) * dt;
 
     if (distance <= travel) {
       vehicle.x = target.x;
