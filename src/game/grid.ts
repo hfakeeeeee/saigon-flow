@@ -1,12 +1,22 @@
 import { GRID_H, GRID_W } from './constants';
 import type { Building, Cell, Direction, GameState, MapBounds } from './types';
 
+const CAMERA_MARGIN_X = 3;
+const CAMERA_MARGIN_Y = 2;
+
 export const keyOf = (x: number, y: number) => `${x},${y}`;
 
 export const inBounds = (x: number, y: number) => x >= 0 && y >= 0 && x < GRID_W && y < GRID_H;
 
 export const inVisibleBounds = (bounds: MapBounds, x: number, y: number) =>
   x >= bounds.minX && x <= bounds.maxX && y >= bounds.minY && y <= bounds.maxY;
+
+export const cameraBoundsFor = (bounds: MapBounds): MapBounds => ({
+  minX: Math.max(0, bounds.minX - CAMERA_MARGIN_X),
+  maxX: Math.min(GRID_W - 1, bounds.maxX + CAMERA_MARGIN_X),
+  minY: Math.max(0, bounds.minY - CAMERA_MARGIN_Y),
+  maxY: Math.min(GRID_H - 1, bounds.maxY + CAMERA_MARGIN_Y),
+});
 
 export const neighborsOf = ({ x, y }: Cell) => [
   { x: x + 1, y },
@@ -136,13 +146,14 @@ export const getCellFromPointer = (
   const rect = canvas.getBoundingClientRect();
   const width = rect.width;
   const height = rect.height;
-  const boundsW = bounds.maxX - bounds.minX + 1;
-  const boundsH = bounds.maxY - bounds.minY + 1;
-  const cell = Math.max(1, Math.floor(Math.min(width / boundsW, height / boundsH)));
-  const offsetX = Math.floor((width - cell * boundsW) / 2);
-  const offsetY = Math.floor((height - cell * boundsH) / 2);
-  const x = Math.floor((clientX - rect.left - offsetX) / cell) + bounds.minX;
-  const y = Math.floor((clientY - rect.top - offsetY) / cell) + bounds.minY;
+  const cameraBounds = cameraBoundsFor(bounds);
+  const cameraW = cameraBounds.maxX - cameraBounds.minX + 1;
+  const cameraH = cameraBounds.maxY - cameraBounds.minY + 1;
+  const cell = Math.max(1, Math.floor(Math.min(width / cameraW, height / cameraH)));
+  const offsetX = Math.floor((width - cell * cameraW) / 2);
+  const offsetY = Math.floor((height - cell * cameraH) / 2);
+  const x = Math.floor((clientX - rect.left - offsetX) / cell) + cameraBounds.minX;
+  const y = Math.floor((clientY - rect.top - offsetY) / cell) + cameraBounds.minY;
 
   if (!inBounds(x, y) || !inVisibleBounds(bounds, x, y)) return null;
   return { x, y };

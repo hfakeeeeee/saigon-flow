@@ -1,5 +1,5 @@
 import { colors, GRID_H, GRID_W, GRIDLOCK_LIMIT_SECONDS, palette } from './constants';
-import { inBounds, inVisibleBounds, keyOf, roadConnections } from './grid';
+import { cameraBoundsFor, inBounds, inVisibleBounds, keyOf, roadConnections } from './grid';
 import { getVehicleLane } from './lane';
 import { roadOwnerMap } from './state';
 import type { Building, Cell, GameState } from './types';
@@ -17,6 +17,46 @@ const drawRoundedRect = (
   ctx.fill();
 };
 
+const drawLockedDistricts = (
+  ctx: CanvasRenderingContext2D,
+  cell: number,
+  rects: Array<{ x: number; y: number; width: number; height: number }>,
+) => {
+  const stripeGap = Math.max(10, cell * 0.34);
+
+  for (const rect of rects) {
+    if (rect.width <= 0 || rect.height <= 0) continue;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rect.x, rect.y, rect.width, rect.height);
+    ctx.clip();
+
+    ctx.fillStyle = 'rgba(21, 32, 38, 0.18)';
+    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+
+    ctx.strokeStyle = 'rgba(21, 32, 38, 0.22)';
+    ctx.lineWidth = Math.max(2, cell * 0.035);
+    for (let start = rect.x - rect.height; start < rect.x + rect.width; start += stripeGap) {
+      ctx.beginPath();
+      ctx.moveTo(start, rect.y + rect.height);
+      ctx.lineTo(start + rect.height, rect.y);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = 'rgba(255, 250, 240, 0.22)';
+    ctx.lineWidth = Math.max(1, cell * 0.018);
+    for (let start = rect.x - rect.height + stripeGap * 0.48; start < rect.x + rect.width; start += stripeGap) {
+      ctx.beginPath();
+      ctx.moveTo(start, rect.y + rect.height);
+      ctx.lineTo(start + rect.height, rect.y);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+};
+
 export const drawGame = (
   ctx: CanvasRenderingContext2D,
   game: GameState,
@@ -27,17 +67,22 @@ export const drawGame = (
   ctx.clearRect(0, 0, width, height);
 
   const bounds = game.visibleBounds;
+  const cameraBounds = cameraBoundsFor(bounds);
   const boundsW = bounds.maxX - bounds.minX + 1;
   const boundsH = bounds.maxY - bounds.minY + 1;
-  const cell = Math.max(1, Math.floor(Math.min(width / boundsW, height / boundsH)));
+  const cameraW = cameraBounds.maxX - cameraBounds.minX + 1;
+  const cameraH = cameraBounds.maxY - cameraBounds.minY + 1;
+  const cell = Math.max(1, Math.floor(Math.min(width / cameraW, height / cameraH)));
   const mapW = cell * boundsW;
   const mapH = cell * boundsH;
   const fullMapW = cell * GRID_W;
   const fullMapH = cell * GRID_H;
-  const offsetX = Math.floor((width - mapW) / 2);
-  const offsetY = Math.floor((height - mapH) / 2);
+  const offsetX = Math.floor((width - cell * cameraW) / 2);
+  const offsetY = Math.floor((height - cell * cameraH) / 2);
   const mapX = bounds.minX * cell;
   const mapY = bounds.minY * cell;
+  const cameraX = cameraBounds.minX * cell;
+  const cameraY = cameraBounds.minY * cell;
 
   const gradient = ctx.createLinearGradient(0, 0, width, height);
   gradient.addColorStop(0, '#f5efe2');
@@ -47,7 +92,7 @@ export const drawGame = (
   ctx.fillRect(0, 0, width, height);
 
   ctx.save();
-  ctx.translate(offsetX - mapX, offsetY - mapY);
+  ctx.translate(offsetX - cameraX, offsetY - cameraY);
 
   ctx.fillStyle = palette.ground;
   ctx.fillRect(0, 0, fullMapW, fullMapH);
@@ -108,11 +153,12 @@ export const drawGame = (
     ctx.globalAlpha = 1;
   }
 
-  ctx.fillStyle = 'rgba(21, 32, 38, 0.16)';
-  ctx.fillRect(0, 0, fullMapW, mapY);
-  ctx.fillRect(0, mapY + mapH, fullMapW, fullMapH - mapY - mapH);
-  ctx.fillRect(0, mapY, mapX, mapH);
-  ctx.fillRect(mapX + mapW, mapY, fullMapW - mapX - mapW, mapH);
+  drawLockedDistricts(ctx, cell, [
+    { x: 0, y: 0, width: fullMapW, height: mapY },
+    { x: 0, y: mapY + mapH, width: fullMapW, height: fullMapH - mapY - mapH },
+    { x: 0, y: mapY, width: mapX, height: mapH },
+    { x: mapX + mapW, y: mapY, width: fullMapW - mapX - mapW, height: mapH },
+  ]);
   ctx.strokeStyle = 'rgba(255, 250, 240, 0.72)';
   ctx.lineWidth = Math.max(2, cell * 0.035);
   ctx.setLineDash([cell * 0.22, cell * 0.18]);
