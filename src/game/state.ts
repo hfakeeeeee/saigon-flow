@@ -6,6 +6,7 @@ import {
   inVisibleBounds,
   keyOf,
   neighborsOf,
+  removeMotorwaysTouchingCell,
   roadConnections,
   setBuildingExit,
 } from './grid';
@@ -656,7 +657,7 @@ const finalizePendingRoadRemovals = (game: GameState) => {
       const [a, b] = edge.split('|');
       if (a === roadKey || b === roadKey) game.roadEdges.delete(edge);
     });
-    game.motorways = game.motorways.filter((motorway) => keyOf(motorway.a.x, motorway.a.y) !== roadKey && keyOf(motorway.b.x, motorway.b.y) !== roadKey);
+    removeMotorwaysTouchingCell(game, cell);
     [...game.houses, ...game.shops].forEach((building) => {
       if (!building.exit) return;
       const exitCell = cellInDirection(building, building.exit);

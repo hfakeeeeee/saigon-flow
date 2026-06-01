@@ -66,6 +66,19 @@ export const connectRoadCells = (game: GameState, a: Cell, b: Cell) => {
   game.roadEdges.add(edgeKey(a, b));
 };
 
+export const removeMotorwaysTouchingCell = (game: GameState, cell: Cell) => {
+  let removed = 0;
+  game.motorways = game.motorways.filter((motorway) => {
+    const touchesCell =
+      keyOf(motorway.a.x, motorway.a.y) === keyOf(cell.x, cell.y) ||
+      keyOf(motorway.b.x, motorway.b.y) === keyOf(cell.x, cell.y);
+    if (touchesCell) removed += 1;
+    return !touchesCell;
+  });
+
+  game.motorwaysAvailable += removed;
+};
+
 export const disconnectRoadCell = (game: GameState, cell: Cell) => {
   game.roadEdges.forEach((edge) => {
     const [a, b] = edge.split('|');
@@ -80,13 +93,7 @@ export const disconnectRoadCell = (game: GameState, cell: Cell) => {
     if (exitCell.x === cell.x && exitCell.y === cell.y) building.exit = undefined;
   });
 
-  game.motorways = game.motorways.filter((motorway) => {
-    const touchesCell =
-      keyOf(motorway.a.x, motorway.a.y) === keyOf(cell.x, cell.y) ||
-      keyOf(motorway.b.x, motorway.b.y) === keyOf(cell.x, cell.y);
-    if (touchesCell) game.motorwaysAvailable += 1;
-    return !touchesCell;
-  });
+  removeMotorwaysTouchingCell(game, cell);
 };
 
 export const hasRoadEdge = (game: GameState, a: Cell, b: Cell) => game.roadEdges.has(edgeKey(a, b));
