@@ -29,7 +29,7 @@ export const drawGame = (
   const bounds = game.visibleBounds;
   const boundsW = bounds.maxX - bounds.minX + 1;
   const boundsH = bounds.maxY - bounds.minY + 1;
-  const cell = Math.floor(Math.min(width / (boundsW + 1.3), height / (boundsH + 1.3)));
+  const cell = Math.max(1, Math.floor(Math.min(width / boundsW, height / boundsH)));
   const mapW = cell * boundsW;
   const mapH = cell * boundsH;
   const offsetX = Math.floor((width - mapW) / 2);
@@ -37,12 +37,9 @@ export const drawGame = (
   const mapX = bounds.minX * cell;
   const mapY = bounds.minY * cell;
 
-  ctx.fillStyle = '#efe4d1';
-  ctx.fillRect(0, 0, width, height);
-
   const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, '#f7f0e4');
-  gradient.addColorStop(0.5, '#ece9d5');
+  gradient.addColorStop(0, '#f5efe2');
+  gradient.addColorStop(0.58, '#ece9d5');
   gradient.addColorStop(1, '#dce8df');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
@@ -51,7 +48,7 @@ export const drawGame = (
   ctx.translate(offsetX - mapX, offsetY - mapY);
 
   ctx.fillStyle = palette.ground;
-  drawRoundedRect(ctx, mapX - cell * 0.28, mapY - cell * 0.28, mapW + cell * 0.56, mapH + cell * 0.56, cell * 0.3);
+  ctx.fillRect(mapX, mapY, mapW, mapH);
 
   ctx.beginPath();
   ctx.rect(mapX, mapY, mapW, mapH);

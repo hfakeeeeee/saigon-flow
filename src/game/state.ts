@@ -120,7 +120,7 @@ export const makeGame = (): GameState => {
         y: starter.shop.y,
         demand: 2,
         capacity: 7,
-        nextDemand: 3.8,
+        nextDemand: 5.2,
         overloadSeconds: 0,
         level: 1,
       },
@@ -255,7 +255,7 @@ const upgradeShopForWeek = (game: GameState) => {
   shop.level = 2;
   shop.capacity = 11;
   shop.demand = Math.min(10, (shop.demand ?? 0) + 2);
-  shop.nextDemand = Math.min(shop.nextDemand ?? 3.5, 2.4);
+  shop.nextDemand = Math.min(shop.nextDemand ?? 4.2, 3.6);
   return true;
 };
 
@@ -406,7 +406,7 @@ const spawnBuilding = (game: GameState) => {
       y: spot.y,
       demand: 1,
       capacity: 7,
-      nextDemand: 4.4,
+      nextDemand: 5.4,
       overloadSeconds: 0,
       level: 1,
     });
@@ -694,10 +694,10 @@ export const updateGame = (game: GameState, dt: number) => {
   for (const shop of game.shops) {
     const shopLevel = shop.level ?? 1;
     const demandCap = shopLevel >= 2 ? 18 : 12;
-    const baseInterval = shopLevel >= 2 ? 3.1 : 5.2;
-    const minimumInterval = shopLevel >= 2 ? 1.55 : 2.35;
-    const randomSpread = shopLevel >= 2 ? 0.95 : 1.2;
-    const speedUp = Math.min(game.score / 120, 1.2);
+    const baseInterval = shopLevel >= 2 ? 4.6 : 6.7;
+    const minimumInterval = shopLevel >= 2 ? 2.35 : 3.15;
+    const randomSpread = shopLevel >= 2 ? 1.05 : 1.35;
+    const speedUp = Math.min(game.score / 180, 0.9);
     shop.nextDemand = (shop.nextDemand ?? 4.5) - dt;
     if ((shop.nextDemand ?? 0) <= 0) {
       shop.demand = Math.min(demandCap, (shop.demand ?? 0) + 1);
