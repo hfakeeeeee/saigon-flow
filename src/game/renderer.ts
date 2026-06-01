@@ -1,4 +1,4 @@
-import { colors, GRIDLOCK_LIMIT_SECONDS, palette } from './constants';
+import { colors, GRID_H, GRID_W, GRIDLOCK_LIMIT_SECONDS, palette } from './constants';
 import { inBounds, inVisibleBounds, keyOf, roadConnections } from './grid';
 import { getVehicleLane } from './lane';
 import { roadOwnerMap } from './state';
@@ -32,6 +32,8 @@ export const drawGame = (
   const cell = Math.max(1, Math.floor(Math.min(width / boundsW, height / boundsH)));
   const mapW = cell * boundsW;
   const mapH = cell * boundsH;
+  const fullMapW = cell * GRID_W;
+  const fullMapH = cell * GRID_H;
   const offsetX = Math.floor((width - mapW) / 2);
   const offsetY = Math.floor((height - mapH) / 2);
   const mapX = bounds.minX * cell;
@@ -48,27 +50,27 @@ export const drawGame = (
   ctx.translate(offsetX - mapX, offsetY - mapY);
 
   ctx.fillStyle = palette.ground;
-  ctx.fillRect(mapX, mapY, mapW, mapH);
+  ctx.fillRect(0, 0, fullMapW, fullMapH);
 
   ctx.beginPath();
-  ctx.rect(mapX, mapY, mapW, mapH);
+  ctx.rect(0, 0, fullMapW, fullMapH);
   ctx.clip();
 
-  for (let x = bounds.minX; x <= bounds.maxX + 1; x += 1) {
+  for (let x = 0; x <= GRID_W; x += 1) {
     ctx.strokeStyle = palette.grid;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(x * cell, mapY);
-    ctx.lineTo(x * cell, mapY + mapH);
+    ctx.moveTo(x * cell, 0);
+    ctx.lineTo(x * cell, fullMapH);
     ctx.stroke();
   }
 
-  for (let y = bounds.minY; y <= bounds.maxY + 1; y += 1) {
+  for (let y = 0; y <= GRID_H; y += 1) {
     ctx.strokeStyle = palette.grid;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(mapX, y * cell);
-    ctx.lineTo(mapX + mapW, y * cell);
+    ctx.moveTo(0, y * cell);
+    ctx.lineTo(fullMapW, y * cell);
     ctx.stroke();
   }
 
@@ -86,24 +88,36 @@ export const drawGame = (
 
   for (const item of game.water) {
     const [x, y] = item.split(',').map(Number);
-    if (!inVisibleBounds(bounds, x, y)) continue;
+    ctx.globalAlpha = inVisibleBounds(bounds, x, y) ? 1 : 0.28;
     fillCell(x, y, palette.water, 0.02);
     ctx.fillStyle = palette.waterDeep;
-    ctx.globalAlpha = 0.18;
+    ctx.globalAlpha = inVisibleBounds(bounds, x, y) ? 0.18 : 0.08;
     ctx.fillRect(x * cell + cell * 0.18, y * cell + cell * 0.42, cell * 0.62, cell * 0.08);
     ctx.globalAlpha = 1;
   }
 
   for (const item of game.parks) {
     const [x, y] = item.split(',').map(Number);
-    if (!inVisibleBounds(bounds, x, y)) continue;
+    ctx.globalAlpha = inVisibleBounds(bounds, x, y) ? 1 : 0.28;
     fillCell(x, y, palette.park, 0.08);
     ctx.fillStyle = '#5e9957';
     ctx.beginPath();
     ctx.arc(x * cell + cell * 0.34, y * cell + cell * 0.38, cell * 0.09, 0, Math.PI * 2);
     ctx.arc(x * cell + cell * 0.62, y * cell + cell * 0.56, cell * 0.08, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalAlpha = 1;
   }
+
+  ctx.fillStyle = 'rgba(21, 32, 38, 0.16)';
+  ctx.fillRect(0, 0, fullMapW, mapY);
+  ctx.fillRect(0, mapY + mapH, fullMapW, fullMapH - mapY - mapH);
+  ctx.fillRect(0, mapY, mapX, mapH);
+  ctx.fillRect(mapX + mapW, mapY, fullMapW - mapX - mapW, mapH);
+  ctx.strokeStyle = 'rgba(255, 250, 240, 0.72)';
+  ctx.lineWidth = Math.max(2, cell * 0.035);
+  ctx.setLineDash([cell * 0.22, cell * 0.18]);
+  ctx.strokeRect(mapX + 1, mapY + 1, mapW - 2, mapH - 2);
+  ctx.setLineDash([]);
 
   drawMotorways(ctx, game, cell);
   drawRoads(ctx, game, cell);
